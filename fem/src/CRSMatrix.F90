@@ -37,6 +37,7 @@
 #include "huti_fdefs.h"
 #include "../config.h"
 
+
 !> \ingroup ElmerLib 
 !> \{
 
@@ -4198,7 +4199,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 ! explicitly, while DEC compiler seems to make a copy of some of the
 ! arrays on the subroutine call (destroying performance).
 !--------------------------------------------------------------------
-#ifndef SGI
+#if 0
     IF ( A % Cholesky ) THEN
       !
       ! Forward substitute (solve z from Lz = b)
@@ -4254,22 +4255,28 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 
       INTEGER :: i,j
 
+      !$OMP PARALLEL
       !
       ! Forward substitute (solve z from Lz = b)
+      !$OMP DO
       DO i=1,n
          DO j=Rows(i),Diag(i)-1
             b(i) = b(i) - Values(j) * b(Cols(j))
          END DO
       END DO
+      !$OMP END DO
 
       !
       ! Backward substitute (solve x from UDx = z)
+      !$OMP DO
       DO i=n,1,-1
          DO j=Diag(i)+1,Rows(i+1)-1
             b(i) = b(i) - Values(j) * b(Cols(j))
          END DO
          b(i) = Values(Diag(i)) * b(i)
       END DO
+      !$OMP END DO
+      !$OMP END PARALLEL
     END SUBROUTINE LUSolve
 #endif
 

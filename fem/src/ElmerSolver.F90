@@ -119,7 +119,8 @@
      CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir, MeshName
      LOGICAL :: DoControl, GotParams
      
-     
+     INTEGER time_begin_c,time_end_c, CountPerSec, CountMax
+     REAL  elaps
 #ifdef HAVE_TRILINOS
 INTERFACE
       SUBROUTINE TrilinosCleanup() BIND(C,name='TrilinosCleanup')
@@ -494,6 +495,7 @@ END INTERFACE
          !------------------------------------------------------------------------------
          ExecCommand = ListGetString( CurrentModel % Simulation, &
              'Control Procedure', GotIt )
+         CALL system_clock(time_begin_c, CountPerSec, CountMax)
          IF ( GotIt ) THEN
            ControlProcedure = GetProcAddr( ExecCommand )
            CALL ExecSimulationProc( ControlProcedure, CurrentModel )
@@ -501,6 +503,10 @@ END INTERFACE
            CALL ExecSimulation( TimeIntervals, CoupledMinIter, &
                CoupledMaxIter, OutputIntervals, Transient, Scanning)
          END IF
+         CALL system_clock(time_end_c)
+         elaps=real(time_end_c - time_begin_c)/CountPerSec
+         WRITE(Message,'(A,F10.6)') 'TIME: ', elaps
+         CALL INFO("ExecSimlation", Message, level=5)
 
          ! This evaluates the cost function and saves the results of control
          IF( DoControl ) THEN

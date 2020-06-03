@@ -388,7 +388,7 @@ CONTAINS
      IF( dofs == 1 ) THEN
        DO i=1,n
          DO j=1,n
-           IF( XOR(PerFlip(Indexes(i)),PerFlip(Indexes(j))) ) THEN
+           IF( PerFlip(Indexes(i)).neqv.PerFlip(Indexes(j)) ) THEN
              A(i,j) = -A(i,j)
            END IF
          END DO
@@ -396,7 +396,7 @@ CONTAINS
      ELSE
        DO i=1,n
          DO j=1,n
-           IF( XOR(PerFlip(Indexes(i)),PerFlip(Indexes(j))) ) THEN
+           IF( PerFlip(Indexes(i)).neqv.PerFlip(Indexes(j)) ) THEN
              DO k=1,dofs
                DO l=1,dofs
                  A(dofs*(i-1)+k,dofs*(j-1)+l) = -A(dofs*(i-1)+k,dofs*(j-1)+l)
@@ -17015,7 +17015,7 @@ CONTAINS
         END IF        
 
         ! Only consider external walls with just either parent in solid
-        IF( .NOT. XOR( Solid1, Solid2 ) ) CYCLE
+        IF( .NOT. Solid1.neqv.Solid2 ) CYCLE
         
         ! Check that the normal points outward of the solid
         IF( Solid1 ) THEN
@@ -18365,7 +18365,7 @@ CONTAINS
                  ! If we sum up to anti-periodic dof then use different sign
                  ! - except if the target is also antiperiodic.
                  IF( PerFlipActive ) THEN
-                   IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                   IF( PerFlip(col).neqv.PerFlip(k) ) Scale = -Scale
                  END IF
                  
                END IF
@@ -18583,7 +18583,7 @@ CONTAINS
                  ! If we sum up to anti-periodic dof then use different sign
                  ! - except if the target is also antiperiodic.
                  IF( PerFlipActive ) THEN
-                   IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                   IF( PerFlip(col).neqv.PerFlip(k) ) Scale = -Scale
                  END IF
                  
                END IF
@@ -18758,7 +18758,7 @@ CONTAINS
                    ! If we sum up to anti-periodic dof then use different sign
                    ! - except if the target is also antiperiodic.
                    IF( PerFlipActive ) THEN
-                     IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                     IF( PerFlip(col).neqv.PerFlip(k) ) Scale = -Scale
                    END IF
 
                  END IF

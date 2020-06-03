@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <vector>
+#include <iterator>
 #include <map>
 
 #include "GeometryNode.h"

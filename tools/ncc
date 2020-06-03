@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+my @opts;
+
+foreach my $arg (@ARGV) {
+    if ($arg eq "-fPIE") {
+        push @opts, -fPIC;
+    } else {
+        push @opts, $arg;
+    }
+}
+
+$cmd = sprintf("/opt/nec/ve/bin/ncc %s", join(' ', @opts));
+
+#print $cmd,'\n';
+$rc = system($cmd);
+
+exit($rc>>8);

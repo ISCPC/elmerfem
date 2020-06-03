@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+my @opts;
+
+foreach my $arg (@ARGV) {
+    if ($arg =~ /^-J(.*)/) {
+        push @opts,"-module ".$1;
+#    } elsif ($arg =~ /^-O(.*)/) {
+#        push @opts, -O0;
+    } elsif ($arg eq "-fPIE") {
+        push @opts, -fPIC;
+    } else {
+        push @opts, $arg;
+    }
+}
+
+#$cmd = sprintf("/opt/nec/ve/bin/nfort %s", join(' ', @opts));
+$cmd = sprintf("/opt/nec/ve/bin/nfort -v %s", join(' ', @opts));
+
+print $cmd,"\n";
+$rc = system($cmd);
+
+exit($rc>>8);

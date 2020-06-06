@@ -231,6 +231,10 @@ MODULE Types
 #ifdef HAVE_TRILINOS
     INTEGER(KIND=C_INTPTR_T) :: Trilinos=0
 #endif
+#ifdef HAVE_HETEROSOLVER
+    LOGICAL :: HSinitialized = .false.
+    INTEGER(8):: HShandle = 0
+#endif
     INTEGER(KIND=AddrInt) :: SpMV=0
 
     INTEGER(KIND=AddrInt) :: MatVecSubr = 0

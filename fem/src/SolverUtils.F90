@@ -12597,6 +12597,9 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER :: mx(:), mb(:), mr(:)
     TYPE(Variable_t), POINTER :: IterV
     LOGICAL :: NormalizeToUnity, AndersonAcc, AndersonScaled, NoSolve
+
+    INTEGER time_begin_c,time_end_c, CountPerSec, CountMax
+    REAL  elaps
     
     INTERFACE 
        SUBROUTINE VankaCreate(A,Solver)
@@ -12931,6 +12934,7 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+    CALL system_clock(time_begin_c, CountPerSec, CountMax)
     IF ( ParEnv % PEs <= 1 ) THEN
       CALL Info('SolveSystem','Serial linear System Solver: '//TRIM(Method),Level=8)
       
@@ -12966,6 +12970,10 @@ END FUNCTION SearchNodeL
         CALL DirectSolver( A, x, b, Solver )
       END SELECT
     END IF
+    CALL system_clock(time_end_c)
+    elaps=real(time_end_c - time_begin_c)/CountPerSec
+    WRITE(Message,'(A,F14.6)') 'TIME: ', elaps
+    CALL INFO("SolveLinearSystem", Message, level=5)
 
 110 IF( AndersonAcc .AND. AndersonScaled )  THEN
       CALL NonlinearAcceleration( A, x, b, Solver, .FALSE.)

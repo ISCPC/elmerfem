@@ -44,6 +44,8 @@
 !> if they are made available at the compilation time. 
 !------------------------------------------------------------------------------
 
+#include "../config.h"
+
 MODULE DirectSolve
 
    USE CRSMatrix
@@ -51,6 +53,10 @@ MODULE DirectSolve
    USE BandMatrix
    USE SParIterSolve
    USE SparIterGlobals
+#ifdef HAVE_HETEROSOLVER
+   USE omp_lib
+   USE heterosolver
+#endif
 
    IMPLICIT NONE
 
@@ -309,7 +315,6 @@ CONTAINS
     REAL(KIND=dp), POINTER CONTIG :: Values(:)
     INTEGER, POINTER CONTIG :: Rows(:), Cols(:), Diag(:)
 
-#include "../config.h"
 #ifdef HAVE_UMFPACK
 
 #ifdef ARCH_32_BITS
@@ -2379,6 +2384,171 @@ CONTAINS
   END SUBROUTINE CPardiso_Free
 #endif
 
+!------------------------------------------------------------------------------
+!> Solves a linear system using HeteroSolver direct solver.
+!> This solver is available only for SX-Aurora TSUBASA.
+!------------------------------------------------------------------------------
+  SUBROUTINE HeteroSolver_SolveSystem( Solver,A,x,b,Free_fact )
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+
+    TYPE(Solver_t) :: Solver
+    TYPE(Matrix_t) :: A
+    REAL(KIND=dp), TARGET :: x(*), b(*)
+    LOGICAL, OPTIONAL :: Free_fact
+
+#ifdef HAVE_HETEROSOLVER
+    INTEGER mtype, n, nrhs, ierror
+    INTEGER i, j, k, nz
+    LOGICAL :: Found, matsym, matpd
+
+    LOGICAL :: Factorize, FreeFactorize
+    CHARACTER(LEN=MAX_NAME_LEN) :: threads, mat_type
+
+    REAL(KIND=dp), POINTER :: values(:)
+    INTEGER, POINTER  :: rows(:), cols(:)
+    REAL*8 :: res
+
+    CALL Info( 'HeteroSolver_Solver:', 'Called.', Level=5 )
+
+    ! Check if system needs to be refactorized
+    Factorize = ListGetLogical( Solver % Values, &
+                  'Linear System Refactorize', Found )
+    IF ( .NOT. Found ) Factorize = .TRUE.
+
+    ! Set matrix type for Pardiso
+    mat_type = ListGetString( Solver % Values, 'Linear System Matrix Type', Found )
+    
+    IF (Found) THEN
+      SELECT CASE(mat_type)
+      CASE('positive definite')
+        mtype = HS_SYMMETRIC_PDS
+      CASE('symmetric indefinite')
+        mtype = -2
+      CASE('structurally symmetric')
+        mtype = HS_SYMMETRIC
+      CASE('nonsymmetric', 'general')
+        mtype = HS_UNSYMMETRIC
+      CASE DEFAULT
+        mtype = HS_UNSYMMETRIC
+      END SELECT
+    ELSE
+      ! Check if matrix is symmetric or spd
+      matsym = ListGetLogical(Solver % Values, &
+                            'Linear System Symmetric', Found)
+
+      matpd = ListGetLogical(Solver % Values, &
+                    'Linear System Positive Definite', Found)
+
+      IF (matsym) THEN
+        IF (matpd) THEN
+          ! Matrix is symmetric positive definite
+           mtype = HS_SYMMETRIC_PDS
+        ELSE
+          ! Matrix is structurally symmetric (can't handle indefinite systems!!!!)
+          mtype = HS_SYMMETRIC
+        END IF
+      ELSE
+        ! Matrix is unsymmetric
+        mtype = HS_UNSYMMETRIC
+      END IF
+    END IF
+
+    ! Free factorization if requested
+    IF ( PRESENT(Free_Fact) ) THEN
+      IF ( Free_Fact ) THEN
+        IF(A % HSinitialized) THEN
+          CALL hs_finalize_handle(A % HShandle, ierror)
+          A % HSinitialized = .false.
+          A % HShandle = 0
+        END IF
+        RETURN
+      END IF
+    END IF
+
+    ! Get number of rows and number of nonzero elements
+    n = A % Numberofrows
+    nz = A % Rows(n+1)-1
+
+    Cols => A % Cols
+    Rows => A % Rows
+    Values => A % Values
+
+    ! Set up parameters
+    nrhs      = 1 ! Use only one RHS
+    res       = 1.0e-10
+
+    ! Compute factorization if necessary
+    IF ( Factorize .OR. .NOT.(A % HSinitialized) ) THEN
+      ! Free factorization
+      IF (A % HSinitialized) THEN
+        CALL hs_finalize_handle(A % HShandle, ierror)
+        A % HSinitialized = .false.
+        A % HShandle = 0
+      END IF
+
+      ! initialize handle
+      CALL hs_init_handle(A % HShandle, n, n, mtype, HS_CSR, ierror)
+      IF (ierror .NE. 0) THEN
+        WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
+        CALL Fatal('HeteroSolver_SolveSystem','Error during initializing handle')
+      END IF
+
+      CALL hs_set_option(A % HShandle, HS_INDEXING, HS_INDEXING_1, ierror)
+!      CALL hs_set_option(A % HShandle, HS_NORM, HS_NORM_L2_ABS, ierror)
+
+      ! Perform preprocess
+      CALL hs_preprocess_rd(A % HShandle, Rows, Cols, Values, ierror);
+
+      IF (ierror .NE. 0) THEN
+        WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
+        CALL Fatal('HeteroSolver_SolveSystem','Error during preprocessing')
+      END IF
+
+      ! Perform factorization
+      CALL hs_factorize_rd(A % HShandle, Rows, Cols, Values, ierror)
+
+      IF (ierror .NE. 0) THEN
+        WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
+        CALL Fatal('HeteroSolver_SolveSystem','Error during factorization phase')
+      END IF
+
+      A % HSinitialized = .true.
+    END IF ! Compute factorization
+
+    ! Perform solve
+    res       = 1.0e-10
+    CALL hs_solve_rd(A % HShandle, Rows, Cols, Values, nrhs, b, x, res, ierror);
+
+    IF (ierror .NE. 0) THEN
+      IF (ierror .EQ. HS_ERROR_ACCURACY) THEN
+        WRITE(*,'(A,E10.2)') 'HeteroSolver: NotAccuracy=', res
+      ELSE
+        WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
+      END IF
+      CALL Fatal('HeteroSolver_SolveSystem','Error during solve phase')
+    END IF
+
+    ! Release memory if needed
+    FreeFactorize = ListGetLogical( Solver % Values, &
+                       'Linear System Free Factorization', Found )
+    IF ( .NOT. Found ) FreeFactorize = .TRUE.
+
+    IF ( Factorize .AND. FreeFactorize ) THEN
+      CALL hs_finalize_handle(A % HShandle, ierror)
+
+      A % HSinitialized = .false.
+      A % HShandle = 0
+    END IF
+
+! Distribution version of Pardiso
+#else
+      CALL Fatal( 'HeteroSolver_SolveSystem', 'HeteroSolver is not supported.' )
+#endif
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE HeteroSolver_SolveSystem
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
   SUBROUTINE DirectSolver( A,x,b,Solver,Free_Fact )
@@ -2420,6 +2590,9 @@ CONTAINS
 #endif
 #ifdef HAVE_FETI4I
         CALL Permon_SolveSystem( Solver, A, x, b, Free_Fact )
+#endif
+#ifdef HAVE_HETEROSOLVER
+        CALL HeteroSolver_SolveSystem( Solver, A, x, b, Free_Fact )
 #endif
         RETURN
         RETURN
@@ -2466,6 +2639,9 @@ CONTAINS
 
       CASE( 'cpardiso' )
         CALL CPardiso_SolveSystem( Solver, A, x, b )
+
+      CASE( 'heterosolver' )
+        CALL HeteroSolver_SolveSystem( Solver, A, x, b )
 
       CASE DEFAULT
         CALL Fatal( 'DirectSolver', 'Unknown direct solver method.' )

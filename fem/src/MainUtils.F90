@@ -122,6 +122,10 @@ CONTAINS
 #ifndef HAVE_FETI4I
           CALL Fatal( 'CheckLinearSolverOptions', 'FETI4I solver has not been installed.' )
 #endif
+        CASE( 'heterosolver' )
+#ifndef HAVE_HETEROSOLVER
+          CALL Fatal( 'CheckLinearSolverOptions', 'HeteroSolver has not been installed.' )
+#endif
         CASE DEFAULT
           CALL Fatal( 'CheckLinearSolverOptions', 'Unknown direct solver method: ' // TRIM(str) )
         END SELECT

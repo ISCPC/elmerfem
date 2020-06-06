@@ -1,1 +1,37 @@
-cmake3 -DWITH_ELMERGUI:BOOL=FALSE -DWITH_OpenMP:BOOL=FALSE -DWITH_MPI:BOOL=FALSE -DWITH_Mumps:BOOL=FALSE -DCMAKE_TOOLCHAIN_FILE=../aurora-toolchain.cmake -DCMAKE_INSTALL_PREFIX=../install ../elmerfem
+#!/bin/bash
+
+### Add Solver Options
+OPTIONS="-DWITH_ELMERGUI:BOOL=FALSE"
+#OPTIONS="${OPTIONS} -DWITH_OpenMP:BOOL=TRUE"
+OPTIONS="${OPTIONS} -DWITH_OpenMP:BOOL=FALSE"
+#OPTIONS="${OPTIONS} -DWITH_MPI:BOOL=TRUE"
+OPTIONS="${OPTIONS} -DWITH_MPI:BOOL=FALSE"
+#OPTIONS="${OPTIONS} -DWITH_Mumps:BOOL=TRUE"
+OPTIONS="${OPTIONS} -DWITH_Mumps:BOOL=FALSE"
+OPTIONS="${OPTIONS} -DWITH_HeteroSolver:BOOL=TRUE"
+
+# with MKL
+#export MKLROOT=/opt/intel/mkl
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/lib/intel64:/opt/intel/mkl/lib/intel64:/opt/elmerfem/lib
+
+#OPTIONS="${OPTIONS} -DWITH_MKL:BOOL=TRUE"
+#OPTIONS="${OPTIONS} -DWITH_MKL:BOOL=FALSE"
+
+# with Hypre
+#export HYPRE_INCLUDE_DIR=/usr/include/hypre
+#export HYPRE_LIBRARY_DIR=/usr/lib/x86_64-linux-gnu
+
+#OPTIONS="${OPTIONS} -DWITH_Hypre:BOOL=TRUE -DHypre_INCLUDE_DIR=${HYPRE_INCLUDE_DIR} -DHypre_LIBRARIES=${HYPRE_LIBRARY_DIR}"
+#OPTIONS="${OPTIONS} -DWITH_Hypre:BOOL=TRUE"
+
+# with Trilinos
+#OPTIONS="${OPTIONS} -DWITH_Trilinos:BOOL=TRUE"
+
+# with feti4i
+#export FETI4I_ROOT=/home/uno/elmer/elmerfem/feti4i
+#OPTIONS="${OPTIONS} -DWITH_FETI4I:BOOL=TRUE -DFETI4I_ROOT=${FETI4I_ROOT}"
+
+### Add Toolchain
+OPTIONS="${OPTIONS} -DCMAKE_TOOLCHAIN_FILE=../aurora-toolchain.cmake"
+
+cmake3 ${OPTIONS} -DCMAKE_INSTALL_PREFIX=../test ../elmerfem

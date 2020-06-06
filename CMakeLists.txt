@@ -95,6 +95,7 @@ SET(WITH_OpenMP FALSE CACHE BOOL "Use OpenMP thread and SIMD (if available) para
 SET(WITH_MKL FALSE CACHE BOOL "Use Intel Math Kernel library")
 SET(WITH_Mumps FALSE CACHE BOOL "Use Mumps sparse direct solver")
 SET(WITH_Hypre FALSE CACHE BOOL "Use Hypre linear algebra library")
+SET(WITH_HeteroSolver FALSE CACHE BOOL "Use SX-Aurora HeteroSolver library")
 SET(WITH_ELMERGUI FALSE CACHE BOOL "Include ElmerGUI")
 SET(WITH_ElmerIce FALSE CACHE BOOL "Include ElmerIce")
 SET(WITH_ELMERGUITESTER FALSE CACHE BOOL "Include ElmerGUI tester")
@@ -322,6 +323,17 @@ IF(WITH_Zoltan)
     MESSAGE(STATUS "------------------------------------------------")
   ENDIF()
 ENDIF(WITH_Zoltan)
+
+IF(WITH_HeteroSolver)
+  # Find MKL
+  SET(HAVE_HETEROSOLVER TRUE)
+  MARK_AS_ADVANCED(HAVE_HETEROSOLVER)
+  # Set BLAS and LAPACK to point to MKL
+#  SET(BLAS_LIBRARIES ${MKL_BLAS_LIBRARIES} CACHE FILEPATH "")
+  SET(LAPACK_LIBRARIES "-lheterosolver_openmp -lblas_sequential -fopenmp" CACHE FILEPATH "")
+#  INCLUDE_DIRECTORIES(${MKL_INCLUDE_DIR})
+  SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
+ENDIF()
 
 # MMG Remeshing
 MESSAGE(STATUS "------------------------------------------------")

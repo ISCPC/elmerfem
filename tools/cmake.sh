@@ -34,4 +34,4 @@ OPTIONS="${OPTIONS} -DWITH_HeteroSolver:BOOL=TRUE"
 ### Add Toolchain
 OPTIONS="${OPTIONS} -DCMAKE_TOOLCHAIN_FILE=../aurora-toolchain.cmake"
 
-cmake3 ${OPTIONS} -DCMAKE_INSTALL_PREFIX=../test ../elmerfem
+cmake3 ${OPTIONS} -DCMAKE_INSTALL_PREFIX=../install ../elmerfem

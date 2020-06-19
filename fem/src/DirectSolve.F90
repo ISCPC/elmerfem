@@ -2458,7 +2458,11 @@ CONTAINS
     IF ( PRESENT(Free_Fact) ) THEN
       IF ( Free_Fact ) THEN
         IF(A % HSinitialized) THEN
-          CALL hs_finalize_handle(A % HShandle, ierror)
+#ifdef HAVE_MPI
+          CALL PHS_finalize_handle(A % HShandle, ierror)
+#else
+          CALL HS_finalize_handle(A % HShandle, ierror)
+#endif
           A % HSinitialized = .false.
           A % HShandle = 0
         END IF
@@ -2482,23 +2486,40 @@ CONTAINS
     IF ( Factorize .OR. .NOT.(A % HSinitialized) ) THEN
       ! Free factorization
       IF (A % HSinitialized) THEN
-        CALL hs_finalize_handle(A % HShandle, ierror)
+#ifdef HAVE_MPI
+        CALL PHS_finalize_handle(A % HShandle, ierror)
+#else
+        CALL HS_finalize_handle(A % HShandle, ierror)
+#endif
         A % HSinitialized = .false.
         A % HShandle = 0
       END IF
 
       ! initialize handle
-      CALL hs_init_handle(A % HShandle, n, n, mtype, HS_CSR, ierror)
+#ifdef HAVE_MPI
+      CALL PHS_init_handle(A % HShandle, n, n, mtype, HS_CSR, HS_MASTER, 0, 0, A % Comm, ierror)
+      ! CALL PHS_init_handle(A % HShandle, n, n, mtype, HS_CSR, 1008, 0, 0, A % Comm, ierror)
+#else
+      CALL HS_init_handle(A % HShandle, n, n, mtype, HS_CSR, ierror)
+#endif
       IF (ierror .NE. 0) THEN
         WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
         CALL Fatal('HeteroSolver_SolveSystem','Error during initializing handle')
       END IF
 
-      CALL hs_set_option(A % HShandle, HS_INDEXING, HS_INDEXING_1, ierror)
-!      CALL hs_set_option(A % HShandle, HS_NORM, HS_NORM_L2_ABS, ierror)
+#ifdef HAVE_MPI
+      CALL PHS_set_option(A % HShandle, HS_INDEXING, HS_INDEXING_1, ierror)
+#else
+      CALL HS_set_option(A % HShandle, HS_INDEXING, HS_INDEXING_1, ierror)
+!      CALL HS_set_option(A % HShandle, HS_NORM, HS_NORM_L2_ABS, ierror)
+#endif
 
       ! Perform preprocess
-      CALL hs_preprocess_rd(A % HShandle, Rows, Cols, Values, ierror);
+#ifdef HAVE_MPI
+      CALL PHS_preprocess_rd(A % HShandle, Rows, Cols, Values, ierror);
+#else
+      CALL HS_preprocess_rd(A % HShandle, Rows, Cols, Values, ierror);
+#endif
 
       IF (ierror .NE. 0) THEN
         WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
@@ -2506,7 +2527,11 @@ CONTAINS
       END IF
 
       ! Perform factorization
-      CALL hs_factorize_rd(A % HShandle, Rows, Cols, Values, ierror)
+#ifdef HAVE_MPI
+      CALL PHS_factorize_rd(A % HShandle, Rows, Cols, Values, ierror)
+#else
+      CALL HS_factorize_rd(A % HShandle, Rows, Cols, Values, ierror)
+#endif
 
       IF (ierror .NE. 0) THEN
         WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
@@ -2518,7 +2543,11 @@ CONTAINS
 
     ! Perform solve
     res       = 1.0e-10
-    CALL hs_solve_rd(A % HShandle, Rows, Cols, Values, nrhs, b, x, res, ierror);
+#ifdef HAVE_MPI
+    CALL PHS_solve_rd(A % HShandle, Rows, Cols, Values, nrhs, b, x, res, ierror);
+#else
+    CALL HS_solve_rd(A % HShandle, Rows, Cols, Values, nrhs, b, x, res, ierror);
+#endif
 
     IF (ierror .NE. 0) THEN
       IF (ierror .EQ. HS_ERROR_ACCURACY) THEN
@@ -2535,7 +2564,11 @@ CONTAINS
     IF ( .NOT. Found ) FreeFactorize = .TRUE.
 
     IF ( Factorize .AND. FreeFactorize ) THEN
-      CALL hs_finalize_handle(A % HShandle, ierror)
+#ifdef HAVE_MPI
+      CALL PHS_finalize_handle(A % HShandle, ierror)
+#else
+      CALL HS_finalize_handle(A % HShandle, ierror)
+#endif
 
       A % HSinitialized = .false.
       A % HShandle = 0

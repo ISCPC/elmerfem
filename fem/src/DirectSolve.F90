@@ -2384,6 +2384,7 @@ CONTAINS
   END SUBROUTINE CPardiso_Free
 #endif
 
+#ifndef HAVE_MPI
 !------------------------------------------------------------------------------
 !> Solves a linear system using HeteroSolver direct solver.
 !> This solver is available only for SX-Aurora TSUBASA.
@@ -2458,11 +2459,7 @@ CONTAINS
     IF ( PRESENT(Free_Fact) ) THEN
       IF ( Free_Fact ) THEN
         IF(A % HSinitialized) THEN
-#ifdef HAVE_MPI
-          CALL PHS_finalize_handle(A % HShandle, ierror)
-#else
           CALL HS_finalize_handle(A % HShandle, ierror)
-#endif
           A % HSinitialized = .false.
           A % HShandle = 0
         END IF
@@ -2486,40 +2483,22 @@ CONTAINS
     IF ( Factorize .OR. .NOT.(A % HSinitialized) ) THEN
       ! Free factorization
       IF (A % HSinitialized) THEN
-#ifdef HAVE_MPI
-        CALL PHS_finalize_handle(A % HShandle, ierror)
-#else
         CALL HS_finalize_handle(A % HShandle, ierror)
-#endif
         A % HSinitialized = .false.
         A % HShandle = 0
       END IF
 
       ! initialize handle
-#ifdef HAVE_MPI
-      CALL PHS_init_handle(A % HShandle, n, n, mtype, HS_CSR, HS_MASTER, 0, 0, A % Comm, ierror)
-      ! CALL PHS_init_handle(A % HShandle, n, n, mtype, HS_CSR, 1008, 0, 0, A % Comm, ierror)
-#else
       CALL HS_init_handle(A % HShandle, n, n, mtype, HS_CSR, ierror)
-#endif
       IF (ierror .NE. 0) THEN
         WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
         CALL Fatal('HeteroSolver_SolveSystem','Error during initializing handle')
       END IF
 
-#ifdef HAVE_MPI
-      CALL PHS_set_option(A % HShandle, HS_INDEXING, HS_INDEXING_1, ierror)
-#else
       CALL HS_set_option(A % HShandle, HS_INDEXING, HS_INDEXING_1, ierror)
-!      CALL HS_set_option(A % HShandle, HS_NORM, HS_NORM_L2_ABS, ierror)
-#endif
 
       ! Perform preprocess
-#ifdef HAVE_MPI
-      CALL PHS_preprocess_rd(A % HShandle, Rows, Cols, Values, ierror);
-#else
       CALL HS_preprocess_rd(A % HShandle, Rows, Cols, Values, ierror);
-#endif
 
       IF (ierror .NE. 0) THEN
         WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
@@ -2527,11 +2506,7 @@ CONTAINS
       END IF
 
       ! Perform factorization
-#ifdef HAVE_MPI
-      CALL PHS_factorize_rd(A % HShandle, Rows, Cols, Values, ierror)
-#else
       CALL HS_factorize_rd(A % HShandle, Rows, Cols, Values, ierror)
-#endif
 
       IF (ierror .NE. 0) THEN
         WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
@@ -2543,11 +2518,7 @@ CONTAINS
 
     ! Perform solve
     res       = 1.0e-10
-#ifdef HAVE_MPI
-    CALL PHS_solve_rd(A % HShandle, Rows, Cols, Values, nrhs, b, x, res, ierror);
-#else
     CALL HS_solve_rd(A % HShandle, Rows, Cols, Values, nrhs, b, x, res, ierror);
-#endif
 
     IF (ierror .NE. 0) THEN
       IF (ierror .EQ. HS_ERROR_ACCURACY) THEN
@@ -2564,11 +2535,7 @@ CONTAINS
     IF ( .NOT. Found ) FreeFactorize = .TRUE.
 
     IF ( Factorize .AND. FreeFactorize ) THEN
-#ifdef HAVE_MPI
-      CALL PHS_finalize_handle(A % HShandle, ierror)
-#else
       CALL HS_finalize_handle(A % HShandle, ierror)
-#endif
 
       A % HSinitialized = .false.
       A % HShandle = 0
@@ -2582,6 +2549,297 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE HeteroSolver_SolveSystem
 !------------------------------------------------------------------------------
+#else /* HAVE_MPI */
+!------------------------------------------------------------------------------
+  SUBROUTINE PHeteroSolver_SolveSystem( Solver,A,x,b,Free_Fact )
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+
+    TYPE(Solver_t) :: Solver
+    TYPE(Matrix_t) :: A
+    REAL(KIND=dp), TARGET :: x(*), b(*)
+    LOGICAL, OPTIONAL :: Free_fact
+
+#ifdef HAVE_HETEROSOLVER
+    INTEGER mtype, n, neq, nrhs, ierror
+    INTEGER i, j, k, nz
+    LOGICAL :: Found, matsym, matpd
+
+    INTEGER, ALLOCATABLE :: Owner(:)
+    INTEGER allocstat, nOwned, nl, nt
+    INTEGER :: rind, lrow, rptr, rsize, lind, tind
+    INTEGER :: nzutd, nhalo
+
+    LOGICAL :: Factorize, FreeFactorize
+    CHARACTER(LEN=MAX_NAME_LEN) :: threads, mat_type
+
+    REAL(KIND=dp), ALLOCATABLE :: aa(:)
+    INTEGER, ALLOCATABLE  :: ia(:), ja(:)
+    REAL*8 :: res
+
+    INTEGER, DIMENSION(:), POINTER CONTIG :: iperm, Order
+
+    CALL Info( 'PHeteroSolver_Solver:', 'Called.', Level=5 )
+
+    ! Check if system needs to be refactorized
+    Factorize = ListGetLogical( Solver % Values, &
+                  'Linear System Refactorize', Found )
+    IF ( .NOT. Found ) Factorize = .TRUE.
+
+    ! Set matrix type for Pardiso
+    mat_type = ListGetString( Solver % Values, 'Linear System Matrix Type', Found )
+    
+    IF (Found) THEN
+      SELECT CASE(mat_type)
+      CASE('positive definite')
+        mtype = HS_SYMMETRIC_PDS
+      CASE('symmetric indefinite')
+        mtype = -2
+      CASE('structurally symmetric')
+        mtype = HS_SYMMETRIC
+      CASE('nonsymmetric', 'general')
+        mtype = HS_UNSYMMETRIC
+      CASE DEFAULT
+        mtype = HS_UNSYMMETRIC
+      END SELECT
+    ELSE
+      ! Check if matrix is symmetric or spd
+      matsym = ListGetLogical(Solver % Values, &
+                            'Linear System Symmetric', Found)
+
+      matpd = ListGetLogical(Solver % Values, &
+                    'Linear System Positive Definite', Found)
+
+      IF (matsym) THEN
+        IF (matpd) THEN
+          ! Matrix is symmetric positive definite
+           mtype = HS_SYMMETRIC_PDS
+        ELSE
+          ! Matrix is structurally symmetric (can't handle indefinite systems!!!!)
+          mtype = HS_SYMMETRIC
+        END IF
+      ELSE
+        ! Matrix is unsymmetric
+        mtype = HS_UNSYMMETRIC
+      END IF
+    END IF
+
+    ! Free factorization if requested
+    IF ( PRESENT(Free_Fact) ) THEN
+      IF ( Free_Fact ) THEN
+        IF(A % HSinitialized) THEN
+          CALL PHS_finalize_handle(A % HShandle, ierror)
+          A % HSinitialized = .false.
+          A % HShandle = 0
+        END IF
+        RETURN
+      END IF
+    END IF
+
+    ! Set up continuous numbering for the whole computation domain
+    n = SIZE(A % ParallelInfo % GlobalDOFs)
+    ALLOCATE(A % Gorder(n), Owner(n), STAT=allocstat)
+    IF (allocstat /= 0) THEN
+         CALL Fatal('PHeteroSolver_SolveSystem', &
+                    'Memory allocation for CPardiso global numbering failed')
+    END IF
+    CALL ContinuousNumbering(A % ParallelInfo, A % Perm, A % Gorder, Owner, nOwn=nOwned)
+
+    ! Compute the number of global dofs
+    CALL MPI_ALLREDUCE(nOwned, neq, &
+                       1, MPI_INTEGER, MPI_SUM, A % Comm, ierror)
+    DEALLOCATE(Owner)
+
+    ! Find bounds of domain
+    nl = A % Gorder(1)
+    nt = A % Gorder(1)
+    DO i=2,n
+        ! NOTE: Matrix is structurally symmetric
+        rind = A % Gorder(i)
+        nl = MIN(rind, nl)
+        nt = MAX(rind, nt)
+    END DO
+
+    ! Allocate temp storage for global numbering
+    ALLOCATE(Order(n), iperm(n), STAT=allocstat)
+    IF (allocstat /= 0) THEN
+        CALL Fatal('PHeteroSolver_SolveSystem', &
+                    'Memory allocation for CPardiso global numbering failed')
+    END IF
+
+    ! Sort global numbering to build matrix
+    Order(1:n) = A % Gorder(1:n)
+    DO i=1,n
+        iperm(i)=i
+    END DO
+    CALL SortI(n, Order, iperm)
+
+    ! Allocate storage for CPardiso matrix
+    nhalo = (nt-nl+1)-n
+    nz = A % Rows(A % NumberOfRows+1)-1
+    IF (mtype.eq.HS_UNSYMMETRIC) THEN
+        ALLOCATE(ia(nt-nl+2), &
+                 ja(nz+nhalo), &
+                 aa(nz+nhalo), &
+                STAT=allocstat)
+    ELSE
+        nzutd = ((nz-n)/2)+1 + n
+        ALLOCATE(ia(nt-nl+2), &
+                 ja(nzutd+nhalo), &
+                 aa(nzutd+nhalo), &
+                 STAT=allocstat)
+    END IF
+    IF (allocstat /= 0) THEN
+        CALL Fatal('PHeteroSolver_SolveSystem', &
+                   'Memory allocation for CPardiso matrix failed')
+    END IF
+
+    ! Build distributed CRS matrix
+    ia(1) = 1
+    lrow = 1      ! Next row to add
+    rptr = 1      ! Pointer to next row to add, equals ia(lrow)
+    lind = Order(1)-1 ! Row pointer for the first round
+
+    ! Add rows of matrix 
+    DO i=1,n
+      ! Skip empty rows
+      tind = Order(i)
+      rsize = (tind-lind)-1
+
+      DO j=1,rsize
+        ia(lrow+j)=rptr
+      END DO
+      lrow = lrow + rsize
+
+      ! Add next row
+      rind = iperm(i)
+      lind = A % rows(rind)
+      tind = A % rows(rind+1)
+      rsize = tind-lind
+      DO j=lind, tind-1
+        ja(rptr+(j-lind))=A % Gorder(A % Cols(j))
+        aa(rptr+(j-lind))=A % values(j)
+      END DO
+
+      ! Sort column indices
+      CALL SortF(rsize, ja(rptr:rptr+rsize), aa(rptr:rptr+rsize))
+
+      ! Set up row pointers
+      rptr = rptr + rsize
+      lrow = lrow + 1
+      ia(lrow) = rptr
+
+      lind = Order(i) ! Store row index for next round
+    END DO
+
+    ! Deallocate temp storage
+    DEALLOCATE(Order, iperm)
+
+#if 0
+    write(*,*) 'INFO: nl, nt, ni, nj = ', nl, nt, nt-nl+2, nz+nhalo
+    write(*,*) 'INFO:Number of Rows, nonzero = ', A % NumberOfRows, &
+        SIZE(A % ParallelInfo % GlobalDOFs), A % Rows(n+1)-1, neq
+    write(*,*) 'INFO:Location(Col,Row) = ', A % Cols(1), A % Rows(1)
+    write(*,*) 'INFO:Location(Col,Row) = ', A % Cols(2), A % Rows(2)
+    write(*,*) 'INFO:Values = ', A % Values(1), A % Values(2)
+    DO i=1,nt-nl+1
+      DO j=ia(i),ia(i+1)-1
+        write(*,*) 'INFO: (i,j,v) = ', i, j, ia(i), ja(j), aa(j)
+      END DO
+    END DO
+    call flush(6)
+#endif
+
+    ! Set up parameters
+    nrhs      = 1 ! Use only one RHS
+    res       = 1.0e-10
+
+    ! Compute factorization if necessary
+    IF ( Factorize .OR. .NOT.(A % HSinitialized) ) THEN
+      ! Free factorization
+      IF (A % HSinitialized) THEN
+        CALL PHS_finalize_handle(A % HShandle, ierror)
+        A % HSinitialized = .false.
+        A % HShandle = 0
+      END IF
+
+      ! initialize handle
+      CALL PHS_init_handle(A % HShandle, neq, neq, mtype, HS_DCSR, HS_DIST_ABX, nl, nt, A % Comm, ierror)
+      IF (ierror .NE. 0) THEN
+        WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
+        CALL Fatal('PHeteroSolver_SolveSystem','Error during initializing handle')
+      END IF
+
+      CALL PHS_set_option(A % HShandle, HS_INDEXING, HS_INDEXING_1, ierror)
+
+      ! Perform preprocess
+      CALL PHS_preprocess_rd(A % HShandle, ia, ja, aa, ierror);
+
+      IF (ierror .NE. 0) THEN
+        WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
+        CALL Fatal('PHeteroSolver_SolveSystem','Error during preprocessing')
+      END IF
+      RETURN
+
+      ! Perform factorization
+      CALL PHS_factorize_rd(A % HShandle, ia, ja, aa, ierror)
+
+      IF (ierror .NE. 0) THEN
+        WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
+        CALL Fatal('PHeteroSolver_SolveSystem','Error during factorization phase')
+      END IF
+
+      A % HSinitialized = .true.
+    END IF ! Compute factorization
+    RETURN
+
+    ! ------------------------------------------
+    !ALLOCATE( dbuf(n) )
+    !DO i=1,A % NumberOfRows
+    !  ip = A % Gorder(i)
+    !  dbuf(ip) = b(i)
+    !END DO
+    !ALLOCATE( RHS(n) )
+    !CALL MPI_ALLREDUCE( dbuf, RHS, n, MPI_DOUBLE_PRECISION, MPI_SUM, A % Comm, ierror )
+
+    ! Perform solve
+    res       = 1.0e-10
+    CALL PHS_solve_rd(A % HShandle, ia, ja, aa, nrhs, b, x, res, ierror);
+
+    IF (ierror .NE. 0) THEN
+      IF (ierror .EQ. HS_ERROR_ACCURACY) THEN
+        WRITE(*,'(A,E10.2)') 'PHeteroSolver: NotAccuracy=', res
+      ELSE
+        WRITE(*,'(A,I0)') 'PHeteroSolver: ERROR=', ierror
+      END IF
+      CALL Fatal('PHeteroSolver_SolveSystem','Error during solve phase')
+    END IF
+
+    !DEALLOCATE(RHS)
+    !DEALLOCATE(dbuf)
+
+    ! Release memory if needed
+    FreeFactorize = ListGetLogical( Solver % Values, &
+                       'Linear System Free Factorization', Found )
+    IF ( .NOT. Found ) FreeFactorize = .TRUE.
+
+    IF ( Factorize .AND. FreeFactorize ) THEN
+      CALL PHS_finalize_handle(A % HShandle, ierror)
+
+      A % HSinitialized = .false.
+      A % HShandle = 0
+    END IF
+
+! Distribution version of Pardiso
+#else
+   CALL Fatal( 'PHeteroSolver_SolveSystem', 'Parallel HeteroSolver has not been installed.' )
+#endif
+#endif /* HAVE_MPI */
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE PHeteroSolver_SolveSystem
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE DirectSolver( A,x,b,Solver,Free_Fact )
@@ -2625,7 +2883,11 @@ CONTAINS
         CALL Permon_SolveSystem( Solver, A, x, b, Free_Fact )
 #endif
 #ifdef HAVE_HETEROSOLVER
+#ifdef HAVE_MPI
+        CALL PHeteroSolver_SolveSystem( Solver, A, x, b, Free_Fact )
+#else
         CALL HeteroSolver_SolveSystem( Solver, A, x, b, Free_Fact )
+#endif
 #endif
         RETURN
         RETURN
@@ -2674,7 +2936,11 @@ CONTAINS
         CALL CPardiso_SolveSystem( Solver, A, x, b )
 
       CASE( 'heterosolver' )
+#ifdef HAVE_MPI
+        CALL PHeteroSolver_SolveSystem( Solver, A, x, b )
+#else
         CALL HeteroSolver_SolveSystem( Solver, A, x, b )
+#endif
 
       CASE DEFAULT
         CALL Fatal( 'DirectSolver', 'Unknown direct solver method.' )

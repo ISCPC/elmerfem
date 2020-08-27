@@ -331,6 +331,8 @@ IF(WITH_HeteroSolver)
   # Set BLAS and LAPACK to point to MKL
 #  SET(BLAS_LIBRARIES ${MKL_BLAS_LIBRARIES} CACHE FILEPATH "")
   IF(WITH_MPI)
+    SET(HAVE_PHETEROSOLVER TRUE)
+    MARK_AS_ADVANCED(HAVE_PHETEROSOLVER)
     SET(LAPACK_LIBRARIES "-lheterosolver_mpi_openmp -lblas_sequential -fopenmp" CACHE FILEPATH "")
   ELSE()
     SET(LAPACK_LIBRARIES "-lheterosolver_openmp -lblas_sequential -fopenmp" CACHE FILEPATH "")

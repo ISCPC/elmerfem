@@ -2384,7 +2384,7 @@ CONTAINS
   END SUBROUTINE CPardiso_Free
 #endif
 
-#ifndef HAVE_MPI
+#ifndef HAVE_PHETEROSOLVER
 !------------------------------------------------------------------------------
 !> Solves a linear system using HeteroSolver direct solver.
 !> This solver is available only for SX-Aurora TSUBASA.
@@ -2549,7 +2549,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE HeteroSolver_SolveSystem
 !------------------------------------------------------------------------------
-#else /* HAVE_MPI */
+#else /* HAVE_PHETEROSOLVER */
 !------------------------------------------------------------------------------
   SUBROUTINE PHeteroSolver_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
@@ -2834,11 +2834,11 @@ CONTAINS
 #else
    CALL Fatal( 'PHeteroSolver_SolveSystem', 'Parallel HeteroSolver has not been installed.' )
 #endif
-#endif /* HAVE_MPI */
 
 !------------------------------------------------------------------------------
   END SUBROUTINE PHeteroSolver_SolveSystem
 !------------------------------------------------------------------------------
+#endif /* HAVE_MPI */
 
 
 !------------------------------------------------------------------------------
@@ -2883,7 +2883,7 @@ CONTAINS
         CALL Permon_SolveSystem( Solver, A, x, b, Free_Fact )
 #endif
 #ifdef HAVE_HETEROSOLVER
-#ifdef HAVE_MPI
+#ifdef HAVE_PHETEROSOLVER
         CALL PHeteroSolver_SolveSystem( Solver, A, x, b, Free_Fact )
 #else
         CALL HeteroSolver_SolveSystem( Solver, A, x, b, Free_Fact )
@@ -2936,10 +2936,12 @@ CONTAINS
         CALL CPardiso_SolveSystem( Solver, A, x, b )
 
       CASE( 'heterosolver' )
-#ifdef HAVE_MPI
+#ifdef HAVE_HETEROSOLVER
+#ifdef HAVE_PHETEROSOLVER
         CALL PHeteroSolver_SolveSystem( Solver, A, x, b )
 #else
         CALL HeteroSolver_SolveSystem( Solver, A, x, b )
+#endif
 #endif
 
       CASE DEFAULT

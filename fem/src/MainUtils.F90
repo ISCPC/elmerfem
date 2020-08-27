@@ -5157,7 +5157,7 @@ CONTAINS
      END IF
      CALL system_clock(time_end_c)
      elaps=real(time_end_c - time_begin_c)/CountPerSec
-     WRITE(Message,'(A,F14.6)') 'TIME: ', elaps
+     WRITE(Message,'(A,F14.6)') 'TIME:ExecSolver: ', elaps
      CALL INFO("SingleSolver", Message, level=5)
 
      ! Special slot for post-processing solvers

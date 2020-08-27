@@ -852,6 +852,21 @@ CONTAINS
       END DO
     END IF
 
+#if 0
+    n = A % NumberOfRows
+    nzloc = A % MumpsID % nz_loc
+    write(*,*) 'INFO:Number of Rows, non-zero = ', n, A % Rows(n+1)-1
+    write(*,*) 'INFO:Location(Col,Row) = ', A % Cols(1), A % Rows(1)
+    write(*,*) 'INFO:Values = ', A % Values(1), A % Values(2)
+    write(*,*) 'INFO:Matrix size: ', A % MumpsID % n, A % mumpsID % nz_loc
+    write(*,*) 'INFO:irn(size,min,max) :', size(A % MumpsID % irn_loc), &
+        minval(A % MumpsID % irn_loc), maxval(A % MumpsID % irn_loc)
+    DO i=1,A % MumpsID % nz_loc
+      write(*,*) 'INFO: (i,j,v) = ', i, A % mumpsID % IRN_loc(i), &
+        A % mumpsID % JCN_loc(i), A % mumpsID % A_loc(i)
+    END DO
+    call flush(6)
+#endif
 
     ALLOCATE(A % MumpsID % rhs(A % MumpsId % n))
 
@@ -2207,7 +2222,7 @@ CONTAINS
     ia => A % CPardisoId % ia
     ja => A % CPardisoId % ja
     aa => A % CPardisoId % aa
-
+#if 1
     ! Build distributed CRS matrix
     ia(1) = 1
     lrow = 1      ! Next row to add
@@ -2264,12 +2279,52 @@ CONTAINS
 
       lind = Order(i) ! Store row index for next round
     END DO
+#else
+    ! Build distributed CRS matrix
+    ia(1) = 1
+    lrow = 1      ! Next row to add
+    rptr = 1      ! Pointer to next row to add, equals ia(lrow)
+    lind = Order(1)-1 ! Row pointer for the first round
+    
+    ! Add rows of matrix 
+    DO i=1,n
+      ! Skip empty rows
+      tind = Order(i)
+      rsize = (tind-lind)-1
+      
+      DO j=1,rsize
+        ia(lrow+j)=rptr
+      END DO
+      lrow = lrow + rsize
+      
+      ! Add next row
+      rind = iperm(i)
+      lind = A % rows(rind)
+      tind = A % rows(rind+1)
+      rsize = tind-lind
+      DO j=lind, tind-1
+        ja(rptr+(j-lind))=A % Gorder(A % Cols(j))
+        aa(rptr+(j-lind))=A % values(j)
+      END DO
+        
+      ! Sort column indices
+      CALL SortF(rsize, ja(rptr:rptr+rsize), aa(rptr:rptr+rsize))
+        
+      ! Set up row pointers
+      rptr = rptr + rsize
+      lrow = lrow + 1
+      ia(lrow) = rptr
+
+      lind = Order(i) ! Store row index for next round
+    END DO
+#endif
 
     ! Deallocate temp storage
     DEALLOCATE(Order, iperm)
 
     ! Set up parameters
     A % CPardisoId % msglvl    = 0 ! Do not write out = 0 / write out = 1 info
+    !A % CPardisoId % msglvl    = 1 ! Do not write out = 0 / write out = 1 info
     A % CPardisoId % maxfct    = 1 ! Set up space for 1 matrix at most
     A % CPardisoId % mnum      = 1 ! Matrix to use in the solution phase (1st and only one)
     A % CPardisoId % nrhs      = 1 ! Use only one RHS
@@ -2306,6 +2361,21 @@ CONTAINS
     iparm(40) = 2       ! Distributed solution phase, distributed solution vector
     iparm(41) = nl      ! Beginning of solution domain
     iparm(42) = nt      ! End of solution domain
+
+#if 0
+    write(*,*) 'INFO: nl, nt, ni, nj = ', nl, nt, nt-nl+2, nz+nhalo
+    write(*,*) 'INFO:Number of Rows, nonzero = ', A % NumberOfRows, &
+        SIZE(A % ParallelInfo % GlobalDOFs), A % Rows(n+1)-1, A % CPardisoId % n
+    write(*,*) 'INFO:Location(Col,Row) = ', A % Cols(1), A % Rows(1)
+    write(*,*) 'INFO:Location(Col,Row) = ', A % Cols(2), A % Rows(2)
+    write(*,*) 'INFO:Values = ', A % Values(1), A % Values(2)
+    DO i=1,nt-nl+1
+      DO j=ia(i),ia(i+1)-1
+        write(*,*) 'INFO: (i,j,v) = ', i, j, ia(i), ja(j), aa(j)
+      END DO
+    END DO
+    call flush(6)
+#endif
 
     ! Perform analysis
     phase = 11      ! Analysis

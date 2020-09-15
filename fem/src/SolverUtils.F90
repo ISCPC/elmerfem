@@ -12935,6 +12935,9 @@ END FUNCTION SearchNodeL
     END IF
 
     CALL system_clock(time_begin_c, CountPerSec, CountMax)
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_BEGIN("SolveLinearSystem")
+#endif /* WITH_FTRACE */
     IF ( ParEnv % PEs <= 1 ) THEN
       CALL Info('SolveSystem','Serial linear System Solver: '//TRIM(Method),Level=8)
       
@@ -12970,6 +12973,9 @@ END FUNCTION SearchNodeL
         CALL DirectSolver( A, x, b, Solver )
       END SELECT
     END IF
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_END("SolveLinearSystem")
+#endif /* WITH_FTRACE */
     CALL system_clock(time_end_c)
     elaps=real(time_end_c - time_begin_c)/CountPerSec
     WRITE(Message,'(A,F14.6)') 'TIME:Solver: ', elaps

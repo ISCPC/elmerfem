@@ -37,7 +37,6 @@
 #include "huti_fdefs.h"
 #include "../config.h"
 
-
 !> \ingroup ElmerLib 
 !> \{
 

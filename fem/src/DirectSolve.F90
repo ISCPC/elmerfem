@@ -2566,7 +2566,7 @@ CONTAINS
     LOGICAL :: Found, matsym, matpd
 
     INTEGER, ALLOCATABLE :: Owner(:)
-    INTEGER allocstat, nOwned, nl, nt
+    INTEGER allocstat, nOwned, nl, nt, ip
     INTEGER :: rind, lrow, rptr, rsize, lind, tind
     INTEGER :: nzutd, nhalo
 
@@ -2578,6 +2578,7 @@ CONTAINS
     REAL*8 :: res
 
     INTEGER, DIMENSION(:), POINTER CONTIG :: iperm, Order
+    REAL(KIND=dp), ALLOCATABLE :: dbuf(:), RHS(:)
 
     CALL Info( 'PHeteroSolver_Solver:', 'Called.', Level=5 )
 
@@ -2764,13 +2765,20 @@ CONTAINS
       END IF
 
       ! initialize handle
-      CALL PHS_init_handle(A % HShandle, neq, neq, mtype, HS_DCSR, HS_DIST_ABX, nl, nt, A % Comm, ierror)
+      CALL PHS_init_handle(A % HShandle, neq, neq, mtype, HS_DCSR, HS_DIST_A, nl, nt, A % Comm, ierror)
       IF (ierror .NE. 0) THEN
         WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
         CALL Fatal('PHeteroSolver_SolveSystem','Error during initializing handle')
       END IF
 
       CALL PHS_set_option(A % HShandle, HS_INDEXING, HS_INDEXING_1, ierror)
+      CALL PHS_set_option(A % HShandle, HS_OUTPUT, HS_OUTPUT_B, ierror)
+      CALL PHS_set_option(A % HShandle, HS_DUPLICATE, HS_DUPLICATE_YES, ierror)
+      CALL PHS_set_option(A % HShandle, HS_ORDP, HS_ORDP_METIS, ierror)
+      CALL PHS_set_option(A % HShandle, HS_ORDQ, HS_ORDQ_STATIC, ierror)
+      !CALL PHS_set_option(A % HShandle, HS_PERTURBATION, 10, ierror)
+      CALL PHS_set_option(A % HShandle, HS_SCALING, HS_SCALING_ON, ierror)
+      !CALL PHS_set_option(A % HShandle, HS_NORM, HS_NORM_L2, ierror)
 
       ! Perform preprocess
       CALL PHS_preprocess_rd(A % HShandle, ia, ja, aa, ierror);
@@ -2779,7 +2787,6 @@ CONTAINS
         WRITE(*,'(A,I0)') 'HeteroSolver: ERROR=', ierror
         CALL Fatal('PHeteroSolver_SolveSystem','Error during preprocessing')
       END IF
-      RETURN
 
       ! Perform factorization
       CALL PHS_factorize_rd(A % HShandle, ia, ja, aa, ierror)
@@ -2791,20 +2798,20 @@ CONTAINS
 
       A % HSinitialized = .true.
     END IF ! Compute factorization
-    RETURN
 
     ! ------------------------------------------
-    !ALLOCATE( dbuf(n) )
-    !DO i=1,A % NumberOfRows
-    !  ip = A % Gorder(i)
-    !  dbuf(ip) = b(i)
-    !END DO
-    !ALLOCATE( RHS(n) )
-    !CALL MPI_ALLREDUCE( dbuf, RHS, n, MPI_DOUBLE_PRECISION, MPI_SUM, A % Comm, ierror )
+    ALLOCATE( dbuf(neq) )
+    DO i=1,A % NumberOfRows
+      ip = A % Gorder(i)
+      dbuf(ip) = b(i)
+    END DO
+    ALLOCATE( RHS(neq) )
+    CALL MPI_ALLREDUCE( dbuf, RHS, neq, MPI_DOUBLE_PRECISION, MPI_SUM, A % Comm, ierror )
 
     ! Perform solve
-    res       = 1.0e-10
-    CALL PHS_solve_rd(A % HShandle, ia, ja, aa, nrhs, b, x, res, ierror);
+    !res       = 1.0e-10
+    res       = 1.0e-8
+    CALL PHS_solve_rd(A % HShandle, ia, ja, aa, nrhs, RHS, RHS, res, ierror);
 
     IF (ierror .NE. 0) THEN
       IF (ierror .EQ. HS_ERROR_ACCURACY) THEN
@@ -2815,8 +2822,19 @@ CONTAINS
       CALL Fatal('PHeteroSolver_SolveSystem','Error during solve phase')
     END IF
 
-    !DEALLOCATE(RHS)
-    !DEALLOCATE(dbuf)
+    ! Distribute the solution to all:
+    ! -------------------------------
+    CALL MPI_BCAST( RHS, neq, MPI_DOUBLE_PRECISION, 0, A % Comm, ierror )
+
+    ! Select the values which belong to us:
+    ! -------------------------------------
+    DO i=1,A % NumberOfRows
+      ip = A % Gorder(i)
+      x(i) = RHS(ip)
+    END DO
+
+    DEALLOCATE(RHS)
+    DEALLOCATE(dbuf)
 
     ! Release memory if needed
     FreeFactorize = ListGetLogical( Solver % Values, &
@@ -2830,6 +2848,7 @@ CONTAINS
       A % HShandle = 0
     END IF
 
+    !CALL Info( 'PHeteroSolver_Solver:', 'Done.', Level=5 )
 ! Distribution version of Pardiso
 #else
    CALL Fatal( 'PHeteroSolver_SolveSystem', 'Parallel HeteroSolver has not been installed.' )

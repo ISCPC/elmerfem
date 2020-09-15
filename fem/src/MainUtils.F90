@@ -5149,12 +5149,18 @@ CONTAINS
      END IF
 
      CALL system_clock(time_begin_c, CountPerSec, CountMax)
+#ifdef WITH_FTRACE
+     CALL FTRACE_REGION_BEGIN("ExecSolver")
+#endif /* WITH_FTRACE */
      IF( Solver % SolverMode == SOLVER_MODE_STEPS ) THEN
        CALL ExecSolverinSteps( Model, Solver, dt, TransientSimulation)
      ELSE
        SolverAddr = Solver % PROCEDURE
        CALL ExecSolver( SolverAddr, Model, Solver, dt, TransientSimulation)
      END IF
+#ifdef WITH_FTRACE
+     CALL FTRACE_REGION_END("ExecSolver")
+#endif /* WITH_FTRACE */
      CALL system_clock(time_end_c)
      elaps=real(time_end_c - time_begin_c)/CountPerSec
      WRITE(Message,'(A,F14.6)') 'TIME:ExecSolver: ', elaps

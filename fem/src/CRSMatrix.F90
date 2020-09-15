@@ -48,6 +48,10 @@ MODULE CRSMatrix
 
   USE Lists
   USE LoadMod
+#ifdef HAVE_SBLAS
+  USE omp_lib
+  USE sblas
+#endif
 
   IMPLICIT NONE
 
@@ -4445,6 +4449,18 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 !--------------------------------------------------------------------
 #ifndef SGI
     IF ( HUTI_EXTOP_MATTYPE == HUTI_MAT_NOTTRPSED ) THEN
+#ifdef HAVE_SBLAS
+    GlobalMatrix % alpha = 1.0
+    GlobalMatrix % beta = 0.0
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_BEGIN("sblas_execute")
+#endif /* WITH_FTRACE */
+    CALL sblas_execute_mv_rd(SBLAS_NON_TRANSPOSE, GlobalMatrix % SBLAShandle, &
+        GlobalMatrix % alpha, u, GlobalMatrix % beta, v, GlobalMatrix % ierror)
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_END("sblas_execute")
+#endif /* WITH_FTRACE */
+#else
 #ifdef HAVE_MKL
     CALL mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
 #else
@@ -4459,6 +4475,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
        END DO
 !$omp end parallel do
 #endif
+#endif /* HAVE_SBLAS */
     ELSE
        v(1:n) = 0.0d0
        DO i=1,n

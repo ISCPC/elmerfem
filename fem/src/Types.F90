@@ -235,6 +235,13 @@ MODULE Types
     LOGICAL :: HSinitialized = .false.
     INTEGER(8):: HShandle = 0
 #endif
+#ifdef HAVE_SBLAS
+    LOGICAL :: SBLASinitialized = .false.
+    INTEGER(8):: SBLAShandle = 0
+    INTEGER:: ierror
+    REAL(8):: alpha
+    REAL(8):: beta
+#endif
     INTEGER(KIND=AddrInt) :: SpMV=0
 
     INTEGER(KIND=AddrInt) :: MatVecSubr = 0

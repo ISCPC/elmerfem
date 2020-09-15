@@ -77,6 +77,9 @@
 /* Define if you have a Parallel HeteroSolver library */
 #cmakedefine HAVE_PHETEROSOLVER
 
+/* Define if you have a SBLAS library */
+#cmakedefine HAVE_SBLAS
+
 /* Define if you have LAPACK library. */
 #define HAVE_LAPACK
 

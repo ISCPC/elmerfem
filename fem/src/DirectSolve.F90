@@ -43,6 +43,7 @@
 !> and Pardiso. Note that many of these are linked in with ElmerSolver only 
 !> if they are made available at the compilation time. 
 !------------------------------------------------------------------------------
+!#define MATRIX_OUTPUT 1
 
 MODULE DirectSolve
 
@@ -852,7 +853,7 @@ CONTAINS
       END DO
     END IF
 
-#if 0
+#ifdef MATRIX_OUTPUT
     n = A % NumberOfRows
     nzloc = A % MumpsID % nz_loc
     write(*,*) 'INFO:Number of Rows, non-zero = ', n, A % Rows(n+1)-1
@@ -866,7 +867,7 @@ CONTAINS
         A % mumpsID % JCN_loc(i), A % mumpsID % A_loc(i)
     END DO
     call flush(6)
-#endif
+#endif /* MATRIX_OUTPUT */
 
     ALLOCATE(A % MumpsID % rhs(A % MumpsId % n))
 
@@ -899,6 +900,9 @@ CONTAINS
   DO i=1,A % NumberOfRows
     ip = A % Gorder(i)
     A % MumpsId % RHS(ip) = b(i)
+#ifdef MATRIX_OUTPUT
+    write(*,*) 'INFO: b(i) = ', i, ip, b(i)
+#endif /* MATRIX_OUTPUT */
   END DO
   ALLOCATE( dbuf(A % MumpsID % n) )
   dbuf = A % MumpsId % RHS
@@ -928,7 +932,15 @@ CONTAINS
   DO i=1,A % NumberOfRows
     ip = A % Gorder(i)
     x(i) = A % MumpsId % RHS(ip)
+#ifdef MATRIX_OUTPUT
+    write(*,*) 'INFO: x(i) = ', i, ip, x(i)
+#endif /* MATRIX_OUTPUT */
   END DO
+#ifdef MATRIX_OUTPUT
+  write(*,*) 'INFO: Waiting writing matrix'
+  CALL MPI_BARRIER( A % MumpsID % Comm, ierr )
+  CALL Fatal( 'Mumps_SolveSystem', 'Stop due to matrix output.' )
+#endif /* MATRIX_OUTPUT */
 
   FreeFactorize = ListGetLogical( Solver % Values, &
       'Linear System Free Factorization', stat )
@@ -1779,6 +1791,29 @@ CONTAINS
       A % PardisoId => NULL()
       A % PardisoParam => NULL()
     END IF
+
+#ifdef MATRIX_OUTPUT
+    write(*,*) 'INFO: mtype = ', mtype
+    write(*,*) 'INFO:Matrix_A:info:', 1, n, Rows(n+1)-1
+    DO i=1,n+1
+      write(*,*) 'INFO:Matrix_A:Rows: ', i, i, rows(i)
+    END DO
+    DO i=1,Rows(n+1)-1
+      write(*,*) 'INFO:Matrix_A:Cols_Value: ', i, cols(i), values(i)
+    END DO
+
+    DO i=1,n
+        write(*,*) 'INFO:Vector_b: ', i, i, b(i)
+    END DO
+
+    DO i=1,n
+        write(*,*) 'INFO:Vector_x: ', i, i, x(i)
+    END DO
+    call flush(6)
+    CALL Fatal('Pardiso_SolveSystem','Stop due to matrix output')
+    RETURN
+#endif /* MATRIX_OUTPUT */
+
     IF (ABS(mtype) == 2) DEALLOCATE(Values, Rows, Cols)
 
 ! Distribution version of Pardiso
@@ -1882,7 +1917,6 @@ CONTAINS
       mnum      = 1
       nrhs      = 1
       iparm => A % PardisoParam
-
 
       IF ( Factorize .OR. .NOT.ASSOCIATED(A % PardisoID) ) THEN
         IF(ASSOCIATED(A % PardisoId)) THEN
@@ -2030,9 +2064,20 @@ CONTAINS
 
     ! Gather RHS
     A % CPardisoId % rhs = 0D0
+#ifdef MATRIX_OUTPUT
+    DO i=1,A % NumberOfRows
+        A % CPardisoId % rhs(A % Gorder(i)-nl+1) = b(i)
+        write(*,*) 'INFO:Vector_b: ', i, A % Gorder(i), b(i)
+    END DO
+    call flush(6)
+    write(*,*) 'INFO: Waiting writing matrix'
+    CALL MPI_BARRIER( A % Comm, ierror )
+    CALL Fatal('CPardiso_SolveSystem','Stop due to matrix output')
+#else /* MATRIX_OUTPUT */
     DO i=1,A % NumberOfRows
         A % CPardisoId % rhs(A % Gorder(i)-nl+1) = b(i)
     END DO
+#endif /* MATRIX_OUTPUT */
 
     ! Perform solve
     phase = 33      ! Solve, iterative refinement
@@ -2330,6 +2375,8 @@ CONTAINS
     A % CPardisoId % nrhs      = 1 ! Use only one RHS
     ALLOCATE(A % CPardisoId % rhs(nt-nl+1), &
              A % CPardisoId % x(nt-nl+1), STAT=allocstat)
+    !ALLOCATE(A % CPardisoId % rhs(A % CPardisoId % n), &
+    !         A % CPardisoId % x(A % CPardisoId % n), STAT=allocstat)
     IF (allocstat /= 0) THEN
         CALL Fatal('CPardiso_Factorize', &
                    'Memory allocation for CPardiso rhs and solution vector x failed')
@@ -2352,6 +2399,8 @@ CONTAINS
       iparm(13)=0       ! Do not use permutations from symmetric weighted matching
     END IF
     
+    !iparm(18)=-1        ! Output: Number of nonzeros in the factor LU 
+    !iparm(19)=-1        ! Output: Mflops for LU factorization
     iparm(21)=1         ! Do not use Bunch Kaufman pivoting
     iparm(27)=0         ! Do not check sparse matrix representation
     iparm(28)=0         ! Use double precision
@@ -2362,20 +2411,18 @@ CONTAINS
     iparm(41) = nl      ! Beginning of solution domain
     iparm(42) = nt      ! End of solution domain
 
-#if 0
-    write(*,*) 'INFO: nl, nt, ni, nj = ', nl, nt, nt-nl+2, nz+nhalo
-    write(*,*) 'INFO:Number of Rows, nonzero = ', A % NumberOfRows, &
-        SIZE(A % ParallelInfo % GlobalDOFs), A % Rows(n+1)-1, A % CPardisoId % n
-    write(*,*) 'INFO:Location(Col,Row) = ', A % Cols(1), A % Rows(1)
-    write(*,*) 'INFO:Location(Col,Row) = ', A % Cols(2), A % Rows(2)
-    write(*,*) 'INFO:Values = ', A % Values(1), A % Values(2)
-    DO i=1,nt-nl+1
-      DO j=ia(i),ia(i+1)-1
-        write(*,*) 'INFO: (i,j,v) = ', i, j, ia(i), ja(j), aa(j)
-      END DO
+#ifdef MATRIX_OUTPUT
+    write(*,*) 'INFO: mtype = ', A % CPardisoId % mtype
+    write(*,*) 'INFO:Matrix_A:info:', nl, nt, A % CPardisoId % n, A % Rows(n+1)-1, A % NumberOfRows
+    !write(*,*) 'INFO:Matrix_A:info:', nl, nt, A % CPardisoId % n, A % Rows(n+1)-1
+    DO i=1,nt-nl+2
+      write(*,*) 'INFO:Matrix_A:Rows: ', i, nl+i-1, ia(i)
     END DO
-    call flush(6)
-#endif
+    DO i=1,A % Rows(n+1)-1
+      write(*,*) 'INFO:Matrix_A:Cols_Value: ', i, ja(i), aa(i)
+    END DO
+    RETURN
+#endif /* MATRIX_OUTPUT */
 
     ! Perform analysis
     phase = 11      ! Analysis
@@ -2389,6 +2436,7 @@ CONTAINS
         WRITE(*,'(A,I0)') 'MKL CPardiso: ERROR=', ierror
         CALL Fatal('CPardiso_SolveSystem','Error during analysis phase')
     END IF
+    !RETURN
 
     ! Perform factorization
     phase = 22      ! Factorization

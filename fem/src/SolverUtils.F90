@@ -43,7 +43,7 @@
 
 !> \ingroup ElmerLib
 !> \{
-
+!#define MATRIX_OUTPUT 1
 
 MODULE SolverUtils
 
@@ -13512,6 +13512,23 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+#ifdef MATRIX_OUTPUT
+    n = A % Numberofrows
+    write(*,*) 'INFO:Matrix_A:info:', 1, n, n, A % Rows(n+1)-1, n
+    !DO i=1,n
+    !  write(*,*) 'INFO:Matrix_A:Diag: ', i, i, A % Diag(i)
+    !END DO
+    DO i=1,n+1
+      write(*,*) 'INFO:Matrix_A:Rows: ', i, i, A % Rows(i)
+    END DO
+    DO i=1,A % Rows(n+1)-1
+      write(*,*) 'INFO:Matrix_A:Cols_Value: ', i, A % Cols(i), A % Values(i)
+    END DO
+
+    DO i=1,n
+        write(*,*) 'INFO:Vector_b: ', i, i, b(i)
+    END DO
+#endif /* MATRIX_OUTPUT */
     CALL system_clock(time_begin_c, CountPerSec, CountMax)
     IF ( ParEnv % PEs <= 1 ) THEN
       CALL Info('SolveLinearSystem','Serial linear System Solver: '//TRIM(Method),Level=8)
@@ -13552,6 +13569,15 @@ END FUNCTION SearchNodeL
     elaps=real(time_end_c - time_begin_c)/CountPerSec
     WRITE(Message,'(A,F14.6)') 'TIME:Solver: ', elaps
     CALL INFO("SolveLinearSystem", Message, level=5)
+
+#ifdef MATRIX_OUTPUT
+    DO i=1,n
+        write(*,*) 'INFO:Vector_x: ', i, i, x(i)
+    END DO
+    call flush(6)
+    CALL Fatal('SolverUtils','Stop due to matrix output')
+    RETURN
+#endif /* MATRIX_OUTPUT */
 
 110 IF( AndersonAcc .AND. AndersonScaled )  THEN
       CALL NonlinearAcceleration( A, x, b, Solver, .FALSE.)

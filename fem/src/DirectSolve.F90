@@ -1918,6 +1918,7 @@ CONTAINS
       nrhs      = 1
       iparm => A % PardisoParam
 
+
       IF ( Factorize .OR. .NOT.ASSOCIATED(A % PardisoID) ) THEN
         IF(ASSOCIATED(A % PardisoId)) THEN
           phase     = -1           ! release internal memory
@@ -2267,6 +2268,7 @@ CONTAINS
     ia => A % CPardisoId % ia
     ja => A % CPardisoId % ja
     aa => A % CPardisoId % aa
+
 #if 1
     ! Build distributed CRS matrix
     ia(1) = 1
@@ -2330,18 +2332,18 @@ CONTAINS
     lrow = 1      ! Next row to add
     rptr = 1      ! Pointer to next row to add, equals ia(lrow)
     lind = Order(1)-1 ! Row pointer for the first round
-    
-    ! Add rows of matrix 
+
+    ! Add rows of matrix
     DO i=1,n
       ! Skip empty rows
       tind = Order(i)
       rsize = (tind-lind)-1
-      
+
       DO j=1,rsize
         ia(lrow+j)=rptr
       END DO
       lrow = lrow + rsize
-      
+
       ! Add next row
       rind = iperm(i)
       lind = A % rows(rind)
@@ -2351,10 +2353,10 @@ CONTAINS
         ja(rptr+(j-lind))=A % Gorder(A % Cols(j))
         aa(rptr+(j-lind))=A % values(j)
       END DO
-        
+
       ! Sort column indices
       CALL SortF(rsize, ja(rptr:rptr+rsize), aa(rptr:rptr+rsize))
-        
+
       ! Set up row pointers
       rptr = rptr + rsize
       lrow = lrow + 1
@@ -2399,7 +2401,7 @@ CONTAINS
       iparm(13)=0       ! Do not use permutations from symmetric weighted matching
     END IF
     
-    !iparm(18)=-1        ! Output: Number of nonzeros in the factor LU 
+    !iparm(18)=-1        ! Output: Number of nonzeros in the factor LU
     !iparm(19)=-1        ! Output: Mflops for LU factorization
     iparm(21)=1         ! Do not use Bunch Kaufman pivoting
     iparm(27)=0         ! Do not check sparse matrix representation

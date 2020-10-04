@@ -43,6 +43,7 @@
 
 !> \ingroup ElmerLib
 !> \{
+
 !#define MATRIX_OUTPUT 1
 
 MODULE SolverUtils

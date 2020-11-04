@@ -13148,6 +13148,7 @@ END FUNCTION SearchNodeL
        x, Norm, DOFs, Solver, BulkMatrix )
 !------------------------------------------------------------------------------
     USE EigenSolve
+    USE VESolver
 
     REAL(KIND=dp) CONTIG :: b(:), x(:)
     REAL(KIND=dp) :: Norm
@@ -13545,6 +13546,12 @@ END FUNCTION SearchNodeL
             'Feti solver available only in parallel.')
       CASE('block')
         CALL BlockSolveExt( A, x, b, Solver )
+#ifdef HAVE_VESOLVER
+      CASE('veiterative')
+        CALL VEIterSolver( A, x, b, Solver )
+      CASE('vedirect')
+        CALL VEDirectSolver( A, x, b, Solver )
+#endif
       CASE DEFAULT
         CALL DirectSolver( A, x, b, Solver )        
       END SELECT
@@ -13562,6 +13569,13 @@ END FUNCTION SearchNodeL
         CALL FetiSolver( A, x, b, Solver )
       CASE('block')
         CALL BlockSolveExt( A, x, b, Solver )
+#ifdef HAVE_VESOLVER
+      CASE('veiterative')
+        CALL VEParIterSolver( A, A % ParallelInfo, DOFs, &
+            x, b, Solver, A % ParMatrix )
+      CASE('vedirect')
+        CALL VEDirectSolver( A, x, b, Solver )
+#endif
      CASE DEFAULT
         CALL DirectSolver( A, x, b, Solver )
       END SELECT

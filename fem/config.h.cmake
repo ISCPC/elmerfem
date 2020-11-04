@@ -71,6 +71,9 @@
 /* Define if you have a CPardiso solver from MKL */
 #cmakedefine HAVE_CPARDISO
 
+/* Define if you have a VE solver on SX-Aurora Vector Engine */
+#cmakedefine HAVE_VESOLVER
+
 /* Define if you have LAPACK library. */
 #define HAVE_LAPACK
 

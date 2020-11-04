@@ -99,6 +99,8 @@ SET(WITH_OpenMP FALSE CACHE BOOL "Use OpenMP thread and SIMD (if available) para
 SET(WITH_MKL FALSE CACHE BOOL "Use Intel Math Kernel library")
 SET(WITH_Mumps FALSE CACHE BOOL "Use Mumps sparse direct solver")
 SET(WITH_Hypre FALSE CACHE BOOL "Use Hypre linear algebra library")
+#SET(WITH_HeteroSolver FALSE CACHE BOOL "Use SX-Aurora HeteroSolver library")
+SET(WITH_VESolver FALSE CACHE BOOL "Use linear algebra library on SX-Aurora Vector Engine")
 SET(WITH_ELMERGUI FALSE CACHE BOOL "Include ElmerGUI")
 SET(WITH_ElmerIce FALSE CACHE BOOL "Include ElmerIce")
 SET(WITH_ELMERGUITESTER FALSE CACHE BOOL "Include ElmerGUI tester")
@@ -353,6 +355,11 @@ IF(WITH_Zoltan)
     MESSAGE(STATUS "------------------------------------------------")
   ENDIF()
 ENDIF(WITH_Zoltan)
+
+IF(WITH_VESOLVER)
+  SET(HAVE_VESOLVER TRUE)
+  MARK_AS_ADVANCED(HAVE_VESOLVER)
+ENDIF()
 
 # MMG Remeshing
 MESSAGE(STATUS "------------------------------------------------")

@@ -2,7 +2,6 @@ MODULE VESolver
     USE Types
     IMPLICIT NONE
     public VESolver_Solve, VESolver_Init
-    public VESolver_IterSolve
 
     INCLUDE "mpif.h"
 
@@ -103,24 +102,6 @@ CONTAINS
 !--------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------
-    SUBROUTINE VESolver_IterSolve(neq, nnz, Rows, Cols, Values, b, x, res, comm, err)
-!--------------------------------------------------------------------------------
-        INTEGER :: neq, nnz, err
-        !INTEGER, POINTER CONTIG :: Rows(:), Cols(:)
-        !REAL(KIND=dp), POINTER CONTIG :: Values(:)
-        !REAL(KIND=dp), POINTER CONTIG :: Values(:), b(:), x(:)
-        INTEGER, DIMENSION(:), TARGET CONTIG :: Rows, Cols
-        REAL(KIND=dp), DIMENSION(:), TARGET CONTIG :: Values, x, b
-        REAL(KIND=dp) :: res
-        INTEGER :: comm
-!
-        !CALL VESolver_Solve(100, 273, neq, nnz, Rows, Cols, Values, b, x, res, comm, err)
-        CALL VESolver_Solve(0, 273, neq, nnz, Rows, Cols, Values, b, x, res, comm, err)
-!--------------------------------------------------------------------------------
-    END SUBROUTINE VESolver_IterSolve
-!--------------------------------------------------------------------------------
-
-!--------------------------------------------------------------------------------
     SUBROUTINE VEDirectSolver( A, x, b, Solver )
 !--------------------------------------------------------------------------------
         TYPE(Solver_t) :: Solver
@@ -160,7 +141,6 @@ CONTAINS
 
         WRITE( Message, * ) 'INFO: VEIterSolver called.'
         CALL Info( 'VEIterSolver', Message, Level=5 )
-        !CALL VESolver_IterSolve(0, n, nz, A % Rows, A % Cols, A % Values, b, x, res, A % Comm, err )
         CALL VESolver_Solve(100, 17, n, nz, A % Rows, A % Cols, A % Values, b, x, res, A % comm, err)
 
 !-------------------------------------------------------------------------------

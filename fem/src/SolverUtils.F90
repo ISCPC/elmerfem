@@ -13571,8 +13571,7 @@ END FUNCTION SearchNodeL
         CALL BlockSolveExt( A, x, b, Solver )
 #ifdef HAVE_VESOLVER
       CASE('veiterative')
-        CALL VEParIterSolver( A, A % ParallelInfo, DOFs, &
-            x, b, Solver, A % ParMatrix )
+        CALL VEParIterSolver( A, x, b, Solver )
       CASE('vedirect')
         CALL VEDirectSolver( A, x, b, Solver )
 #endif

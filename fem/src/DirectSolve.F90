@@ -808,6 +808,24 @@ CONTAINS
       END DO
     END IF
 
+#ifdef MATRIX_OUTPUT
+    write(*,*) 'INFO: mtype = ', A % mumpsID % sym
+    write(*,*) 'INFO:Matrix_A:info:', 1, A % NumberOfRows, n, A % Rows(n+1)-1, A % MumpsID % n
+    DO i=1,A % NumberOfRows+1
+      write(*,*) 'INFO:Matrix_A:Rows: ', i, i, A % Rows(i)
+    END DO
+    DO i=1,A % Rows(n+1)-1
+      write(*,*) 'INFO:Matrix_A:Cols_Value: ', i, A % Cols(i), A % Values(i)
+    END DO
+    DO i=1,n
+      write(*,*) 'INFO:Matrix_A:Numbering: ', i, A % Gorder(i), b(i)
+    END DO
+    call flush(6)
+    write(*,*) 'INFO: Waiting writing matrix'
+    CALL MPI_BARRIER( A % Comm, ierr )
+    CALL Fatal('Mumps_SolveSystem','Stop due to matrix output')
+#endif /* MATRIX_OUTPUT */
+
    ! Set matrix for Mumps (unsymmetric case)
     IF (A % mumpsID % sym == 0) THEN
       A % MumpsID % nz_loc = A % Rows(A % NumberOfRows+1)-1
@@ -2222,6 +2240,21 @@ CONTAINS
                        1, MPI_INTEGER, MPI_SUM, A % Comm, ierror)
     DEALLOCATE(Owner)
 
+#ifdef MATRIX_OUTPUT
+    write(*,*) 'INFO: mtype = ', A % CPardisoId % mtype
+    write(*,*) 'INFO:Matrix_A:info:', 1, A % NumberOfRows, A % CPardisoId % n, A % Rows(n+1)-1, A % NumberOfRows, n
+    DO i=1,A % NumberOfRows+1
+      write(*,*) 'INFO:Matrix_A:Rows: ', i, i, A % Rows(i)
+    END DO
+    DO i=1,A % Rows(n+1)-1
+      write(*,*) 'INFO:Matrix_A:Cols_Value: ', i, A % Cols(i), A % Values(i)
+    END DO
+    DO i=1,A % CPardisoId % n
+      write(*,*) 'INFO:Matrix_A:Numbering: ', i, A % Gorder(i)
+    END DO
+    RETURN
+#endif /* MATRIX_OUTPUT */
+
     ! Find bounds of domain
     nl = A % Gorder(1)
     nt = A % Gorder(1)
@@ -2498,7 +2531,6 @@ CONTAINS
     END IF
   END SUBROUTINE CPardiso_Free
 #endif
-
 
 !------------------------------------------------------------------------------
   SUBROUTINE DirectSolver( A,x,b,Solver,Free_Fact )

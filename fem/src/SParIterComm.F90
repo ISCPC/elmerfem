@@ -119,7 +119,7 @@ CONTAINS
 !-----------------------------------------------------------------------
    FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
 !-----------------------------------------------------------------------
-     USE VESolver
+     USE VESolverInit
      TYPE (ParEnv_t), POINTER :: ParallelEnv
 
     ! Local variables
@@ -1813,7 +1813,7 @@ CONTAINS
 !--------------------------------------------------------------------  
    SUBROUTINE SParGlobalNumbering( Mesh, OldMesh, NewNodeCnt, Reorder )
 !-----------------------------------------------------------------------
-    USE VESolver
+    USE VESolverInit
     USE GeneralUtils
 !-----------------------------------------------------------------------
      TYPE(Mesh_t) :: Mesh, OldMesh
@@ -4887,7 +4887,7 @@ END FUNCTION SParCNorm
 !> Finalize MPI environment
 !
 SUBROUTINE ParEnvFinalize()
-  USE VESolver
+  USE VESolverInit
   IMPLICIT NONE
 
   ! local variables

@@ -42,7 +42,7 @@ SET(solverlib_SOURCES AddrFunc.F90 NavierStokes.F90 NavierStokesGeneral.F90
   cholmod.c InterpolateMeshToMesh.F90 InterpVarToVar.F90
   LinearForms.F90 H1Basis.F90 CircuitUtils.F90 BackwardError.F90
   ElmerSolver.F90 MagnetoDynamicsUtils.F90 ComponentUtils.F90 
-  ZirkaHysteresis.F90 VESolver.F90)
+  ZirkaHysteresis.F90)
 
 SET_PROPERTY(SOURCE MaxwellAxiS.F90 PROPERTY
 	COMPILE_DEFINITIONS FULL_INDUCTION)
@@ -59,6 +59,10 @@ ENDIF()
 
 IF(HAVE_FETI4I)
   LIST(APPEND solverlib_SOURCES ${FETI4I_INTERFACE_SOURCE})
+ENDIF()
+
+IF(HAVE_VESOLVER)
+  LIST(APPEND solverlib_SOURCES VESolverInit.F90 VESolver.F90)
 ENDIF()
 
 #FILE(GLOB SRC_FILES *.src)

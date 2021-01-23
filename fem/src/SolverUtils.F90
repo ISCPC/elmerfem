@@ -13532,8 +13532,8 @@ END FUNCTION SearchNodeL
     END DO
 #endif /* MATRIX_OUTPUT */
     n = A % Numberofrows
-    write(*,*) 'INFO:SolverUtils:A', n, A % Rows(n+1)-1
-    write(*,*) 'INFO:SolverUtils:A_Splitted:', A % ParMatrix % SplittedMatrix % InsideMatrix % Rows(n+1)-1
+    !write(*,*) 'INFO:SolverUtils:A', n, A % Rows(n+1)-1
+    !write(*,*) 'INFO:SolverUtils:A_Splitted:', A % ParMatrix % SplittedMatrix % InsideMatrix % Rows(n+1)-1
     CALL system_clock(time_begin_c, CountPerSec, CountMax)
     IF ( ParEnv % PEs <= 1 ) THEN
       CALL Info('SolveLinearSystem','Serial linear System Solver: '//TRIM(Method),Level=8)

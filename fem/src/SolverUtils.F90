@@ -13531,6 +13531,9 @@ END FUNCTION SearchNodeL
         write(*,*) 'INFO:Vector_b: ', i, i, b(i)
     END DO
 #endif /* MATRIX_OUTPUT */
+    n = A % Numberofrows
+    write(*,*) 'INFO:SolverUtils:A', n, A % Rows(n+1)-1
+    write(*,*) 'INFO:SolverUtils:A_Splitted:', A % ParMatrix % SplittedMatrix % InsideMatrix % Rows(n+1)-1
     CALL system_clock(time_begin_c, CountPerSec, CountMax)
     IF ( ParEnv % PEs <= 1 ) THEN
       CALL Info('SolveLinearSystem','Serial linear System Solver: '//TRIM(Method),Level=8)
@@ -13821,6 +13824,7 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER :: bb(:),Res(:)
     REAL(KIND=dp) :: t0,rt0,rst,st,ct
     TYPE(ValueList_t), POINTER :: Params
+    INTEGER :: myrank, err
 
     INTERFACE
       SUBROUTINE BlockSolveExt(A,x,b,Solver)
@@ -13836,6 +13840,8 @@ END FUNCTION SearchNodeL
     Params => Solver % Values
 
     CALL Info('SolveSystem','Solving linear system',Level=10)
+    CALL MPI_COMM_RANK(A % comm, myrank, err)
+    write(*,*) 'INFO:SolveSystem: Called', myrank
 
     Timing = ListCheckPrefix(Params,'Linear System Timing')
     IF( Timing ) THEN

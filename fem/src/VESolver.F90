@@ -1,4 +1,8 @@
 MODULE VESolver
+
+#include "../config.h"
+
+#ifdef HAVE_VESOLVER
     USE Types
     !USE SParIterSolve
     IMPLICIT NONE
@@ -352,5 +356,6 @@ CONTAINS
 
         err = VESolver_Init_C(comm)
     END SUBROUTINE VESolver_Init
+#endif
 
 END MODULE VESolver

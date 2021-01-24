@@ -13574,9 +13574,9 @@ END FUNCTION SearchNodeL
         CALL BlockSolveExt( A, x, b, Solver )
 #ifdef HAVE_VESOLVER
       CASE('veiterative')
-        CALL VEParIterSolver( A, x, b, Solver )
+        CALL VEParSolver( A, x, b, Solver )
       CASE('vedirect')
-        CALL VEDirectSolver( A, x, b, Solver )
+        CALL VEParSolver( A, x, b, Solver )
 #endif
      CASE DEFAULT
         CALL DirectSolver( A, x, b, Solver )

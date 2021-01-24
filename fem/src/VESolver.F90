@@ -175,8 +175,8 @@ CONTAINS
         WRITE( Message, * ) 'INFO: VEDirectSolver called.'
         CALL Info( 'VEDirectSolver', Message, Level=5 )
         CALL VESolver_Activate(A % Comm, 1, err)
-        CALL VESolver_Deactivate()
         CALL VESolver_Solve(VESOLVER_HS, n, A % Values, A % Rows, A % Cols, b, x, res, err)
+        CALL VESolver_Deactivate()
 
 !-------------------------------------------------------------------------------
     END SUBROUTINE VEDirectSolver
@@ -218,7 +218,7 @@ CONTAINS
 !       TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE VEParIterSolver( A, x, b, Solver )
+    SUBROUTINE VEParSolver( A, x, b, Solver )
 !-------------------------------------------------------------------------------
         USE SParIterSolve
         TYPE(Solver_t) :: Solver
@@ -232,6 +232,7 @@ CONTAINS
         INTEGER :: n, neq, err, i, mode
         INTEGER :: nRows, nnz
         REAL(8) :: res=1.0e-8
+        INTEGER :: solverId
 
         LOGICAL :: GotIt
         CHARACTER(LEN=MAX_NAME_LEN) :: Method
@@ -241,9 +242,20 @@ CONTAINS
         nnz = A % Rows(nRows+1)-1
 
         ! Check parameter
+        Method = ListGetString( Solver % Values, 'Linear System Solver',GotIt )
+        IF ( .NOT. GotIt ) Method = 'veiterative'
+        CALL Info('VEParIterSolver','Solver type: '//TRIM(Method),Level=5)
+        SELECT CASE(Method)
+          CASE('veiterative')
+            solverId = VESOLVER_BICGSTAB2
+          CASE('vedirect')
+            solverId = VESOLVER_HS
+          CASE DEFAULT
+            solverId = VESOLVER_DUMMY
+        END SELECT
+
         Method = ListGetString( Solver % Values, 'Linear System Parallelize Mode',GotIt )
         IF ( .NOT. GotIt ) Method = 'GatherOnVH'
-
         CALL Info('VEParIterSolver','Using mode: '//TRIM(Method),Level=5)
         SELECT CASE( Method )
           CASE( 'gatheronve' )
@@ -289,7 +301,7 @@ CONTAINS
         ! Call common solver function
         !
         CALL VESolver_Activate(A % comm, 1, err)
-        CALL VESolver_PSolve(mode, VESOLVER_BICGSTAB2, &
+        CALL VESolver_PSolve(mode, solverId, &
             neq, nRows, A % Values, A % Rows, Cols, Rorder, &
             b, x1, res, err)
         CALL VESolver_Deactivate()
@@ -304,7 +316,7 @@ CONTAINS
         DEALLOCATE(Rorder)
         DEALLOCATE(x1)
 !-------------------------------------------------------------------------------
-    END SUBROUTINE VEParIterSolver
+    END SUBROUTINE VEParSolver
 !-------------------------------------------------------------------------------
 
 #endif

@@ -13148,7 +13148,9 @@ END FUNCTION SearchNodeL
        x, Norm, DOFs, Solver, BulkMatrix )
 !------------------------------------------------------------------------------
     USE EigenSolve
+#ifdef HAVE_VESOLVER
     USE VESolver
+#endif
 
     REAL(KIND=dp) CONTIG :: b(:), x(:)
     REAL(KIND=dp) :: Norm

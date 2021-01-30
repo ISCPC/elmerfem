@@ -120,7 +120,7 @@ CONTAINS
    FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
 !-----------------------------------------------------------------------
 #ifdef HAVE_VESOLVER
-     USE VESolverInit
+     USE VESolverAPI
 #endif
      TYPE (ParEnv_t), POINTER :: ParallelEnv
 
@@ -1816,7 +1816,7 @@ CONTAINS
    SUBROUTINE SParGlobalNumbering( Mesh, OldMesh, NewNodeCnt, Reorder )
 !-----------------------------------------------------------------------
 #ifdef HAVE_VESOLVER
-    USE VESolverInit
+    USE VESolverAPI
 #endif
     USE GeneralUtils
 !-----------------------------------------------------------------------
@@ -4892,7 +4892,7 @@ END FUNCTION SParCNorm
 !
 SUBROUTINE ParEnvFinalize()
 #ifdef HAVE_VESOLVER
-  USE VESolverInit
+  USE VESolverAPI
 #endif
   IMPLICIT NONE
 

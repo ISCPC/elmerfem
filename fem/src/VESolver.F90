@@ -11,183 +11,13 @@ MODULE VESolver
 #define VESOLVER_BICGSTAB2   100
 #define VESOLVER_DUMMY      9999
 
-#define VES_MATINFO_TAG     1000
-#define VES_MATDATA_TAG     1001
-#define VES_MATGATHER_TAG   1002
-
     USE Types
     USE Lists
+    USE VESolverAPI
     IMPLICIT NONE
-
-    INTERFACE
-        SUBROUTINE VESolver_Deactivate() bind (c,name="vesolver_deactivate")
-            USE iso_c_binding
-        END SUBROUTINE
-    END INTERFACE
 
 CONTAINS
 
-!--------------------------------------------------------------------------------
-    SUBROUTINE VESolver_Activate(comm, nprocs, err)
-!--------------------------------------------------------------------------------
-        INTEGER, intent(in) :: comm, nprocs
-        INTEGER, intent(out) :: err
-
-        INTERFACE
-            integer(C_INT32_T) FUNCTION VESolver_Activate_C(comm, nprocs) bind (c,name="vesolver_activate_f")
-                USE iso_c_binding
-                INTEGER(c_int), VALUE :: comm, nprocs
-            END FUNCTION
-        END INTERFACE
-
-        err = VESolver_Activate_C(comm, nprocs)
-!--------------------------------------------------------------------------------
-    END SUBROUTINE VESolver_Activate
-!--------------------------------------------------------------------------------
-
-!--------------------------------------------------------------------------------
-    SUBROUTINE VESolver_Solve(solver, neq, Values, Rows, Cols, b, x, res, err)
-!--------------------------------------------------------------------------------
-        INTEGER, intent(in) :: solver, neq
-        REAL(8), DIMENSION(:) :: Values, b, x
-        INTEGER, DIMENSION(:) :: Rows, Cols
-        !REAL(8), DIMENSION(:), TARGET CONTIG :: Values, b, x
-        !INTEGER, DIMENSION(:), TARGET CONTIG :: Rows, Cols
-        REAL(8) :: res
-        INTEGER :: err
-
-        INTEGER :: i, nnz
-        INTEGER :: ves_comm
-        INTEGER :: tag=VES_MATDATA_TAG
-
-        INTERFACE
-            integer(C_INT32_T) FUNCTION VESolver_Solve_C(solver, mtype, neq, &
-                Rows, Cols, Values, b, x, res) bind (c,name="vesolver_solve")
-                USE iso_c_binding
-                INTEGER(c_int), VALUE, intent(in) :: solver, mtype, neq
-                REAL(c_double), DIMENSION(*), intent(in) :: Values, b, x
-                INTEGER(c_int), DIMENSION(*), intent(in) :: Rows, Cols
-                REAL(c_double), VALUE, intent(in) :: res
-            END FUNCTION
-        END INTERFACE
-
-        WRITE(*,*) 'INFO: Send Request to VE (solver, res) = (', solver, res, ').'
-        nnz = Rows(neq+1)-1
-#if 0
-        write(*,*) 'INFO:Matrix_A:info:', 1, neq, Rows(neq+1)-1
-        DO i=1,neq+1
-        !DO i=1,10
-          write(*,*) 'INFO:Matrix_A:Rows: ', i, i, Rows(i)
-        END DO
-        DO i=1,nnz
-        !DO i=1,10
-          write(*,*) 'INFO:Matrix_A:Cols_Value: ', i, Cols(i), Values(i)
-        END DO
-
-        DO i=1,neq
-        !DO i=1,10
-            write(*,*) 'INFO:Vector_b: ', i, i, b(i)
-        END DO
-
-        DO i=1,neq
-            write(*,*) 'INFO:Vector_x: ', i, i, x(i)
-        END DO
-#endif
-        err = VESolver_Solve_C(solver, 17, neq, Rows, Cols, Values, b, x, res)
-
-!--------------------------------------------------------------------------------
-    END SUBROUTINE VESolver_Solve
-!--------------------------------------------------------------------------------
-
-!--------------------------------------------------------------------------------
-    SUBROUTINE VESolver_PSolve(mode, solver, neq, nRows, Values, Rows, Cols, Rorder, b, x, res, err)
-!--------------------------------------------------------------------------------
-        INTEGER, intent(in) :: mode, solver, neq, nRows
-        REAL(8), DIMENSION(:), intent(in) :: Values, b, x
-        INTEGER, DIMENSION(:), intent(in) :: Rows, Cols, Rorder
-        !REAL(8), DIMENSION(:), TARGET CONTIG :: Values, b, x
-        !INTEGER, DIMENSION(:), TARGET CONTIG :: Rows, Cols
-        REAL(8) :: res
-        INTEGER :: err
-
-        INTEGER :: i, nnz
-        INTEGER :: ves_comm
-        INTEGER :: tag=VES_MATDATA_TAG
-        INTERFACE
-            integer(C_INT32_T) FUNCTION VESolver_PSolve_C(mode, solver, mtype, neq, &
-                nRows, Rows, Cols, Values, Rorder, b, x, res) bind (c,name="vesolver_psolve")
-                USE iso_c_binding
-                INTEGER(c_int), VALUE, intent(in) :: mode, solver, mtype, neq, nRows
-                REAL(c_double), DIMENSION(*), intent(in) :: Values, b, x
-                INTEGER(c_int), DIMENSION(*), intent(in) :: Rows, Cols, Rorder
-                REAL(c_double), VALUE, intent(in) :: res
-            END FUNCTION
-        END INTERFACE
-
-        WRITE(*,*) 'INFO: Send Request to VE (solver, res) = (', solver, res, ').'
-        nnz = Rows(nRows+1)-1
-#if 0
-        write(*,*) 'INFO:Matrix_A:info:', 1, neq, nRows, nnz
-        DO i=1,nRows+1
-        !DO i=1,10
-          write(*,*) 'INFO:Matrix_A:Rows: ', i, Rows(i)
-        END DO
-        DO i=1,nnz
-        !DO i=1,10
-          write(*,*) 'INFO:Matrix_A:Cols_Value: ', i, Cols(i), Values(i)
-        END DO
-
-        DO i=1,nRows
-        !DO i=1,10
-            write(*,*) 'INFO:Vector_b: ', i, b(i)
-        END DO
-
-        DO i=1,neq
-            write(*,*) 'INFO:Rorder: ', i, Rorder(i)
-        END DO
-#endif
-        err = VESolver_PSolve_C(mode, solver, 17, neq, nRows, &
-            Rows, Cols, Values, Rorder, b, x, res)
-
-!--------------------------------------------------------------------------------
-    END SUBROUTINE VESolver_PSolve
-!--------------------------------------------------------------------------------
-
-!--------------------------------------------------------------------------------
-    SUBROUTINE VESolver_PSolve_phs(neq, Values, Rows, Cols, nl, nt, b, x, res, err)
-!--------------------------------------------------------------------------------
-        INTEGER, intent(in) :: neq, nl, nt
-        REAL(8), DIMENSION(:), intent(in) :: Values, b, x
-        INTEGER, DIMENSION(:), intent(in) :: Rows, Cols
-        REAL(8) :: res
-        INTEGER :: err
-
-        INTEGER :: i, nnz
-        INTEGER :: ves_comm
-        INTEGER :: tag=VES_MATDATA_TAG
-        INTERFACE
-            integer(C_INT32_T) FUNCTION VESolver_PSolve_phs_C(neq, &
-                Rows, Cols, Values, nl, nt, b, x, res) bind (c,name="vesolver_psolve_phs")
-                USE iso_c_binding
-                INTEGER(c_int), VALUE, intent(in) :: neq, nl, nt
-                REAL(c_double), DIMENSION(*), intent(in) :: Values, b, x
-                INTEGER(c_int), DIMENSION(*), intent(in) :: Rows, Cols
-                REAL(c_double), VALUE, intent(in) :: res
-            END FUNCTION
-        END INTERFACE
-
-        WRITE(*,*) 'INFO: Send Request to VE (solver, res) = (', 9999, res, ').'
-        err = VESolver_PSolve_phs_C(neq, Rows, Cols, Values, nl, nt, b, x, res)
-
-!--------------------------------------------------------------------------------
-    END SUBROUTINE VESolver_PSolve_phs
-!--------------------------------------------------------------------------------
-
-!================================================================================
-!
-! API for elmer
-!
-!================================================================================
 !--------------------------------------------------------------------------------
     SUBROUTINE VEDirectSolver( A, x, b, Solver )
 !--------------------------------------------------------------------------------
@@ -517,7 +347,7 @@ CONTAINS
     ALLOCATE( x1(neq) )
     CALL MPI_COMM_SIZE(A % Comm, nprocs, ierror)
     CALL VESolver_Activate(A % comm, nprocs, ierror)
-    CALL VESolver_PSolve_phs(neq, aa, ia, ja, nl, nt, &
+    CALL VESolver_PSolve_dcsr(VES_MODE_SYMMETRIC, VESOLVER_HS, neq, aa, ia, ja, nl, nt, &
         b1, x1, res, ierror)
     CALL VESolver_Deactivate()
 

@@ -13147,6 +13147,9 @@ END FUNCTION SearchNodeL
        x, Norm, DOFs, Solver, BulkMatrix )
 !------------------------------------------------------------------------------
     USE EigenSolve
+#ifdef HAVE_VESOLVER
+    USE VESolver
+#endif
 
     REAL(KIND=dp) CONTIG :: b(:), x(:)
     REAL(KIND=dp) :: Norm
@@ -13173,6 +13176,11 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER :: mx(:), mb(:), mr(:)
     TYPE(Variable_t), POINTER :: IterV
     LOGICAL :: NormalizeToUnity, AndersonAcc, AndersonScaled, NoSolve
+
+#ifdef WITH_TIMELOG
+  INTEGER time_begin_c,time_end_c, CountPerSec, CountMax
+  REAL  elaps
+#endif
     
     INTERFACE 
        SUBROUTINE VankaCreate(A,Solver)
@@ -13509,6 +13517,9 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+#ifdef WITH_TIMELOG
+  CALL system_clock(time_begin_c, CountPerSec, CountMax)
+#endif
     IF ( ParEnv % PEs <= 1 ) THEN
       CALL Info('SolveLinearSystem','Serial linear System Solver: '//TRIM(Method),Level=8)
       
@@ -13523,6 +13534,12 @@ END FUNCTION SearchNodeL
             'Feti solver available only in parallel.')
       CASE('block')
         CALL BlockSolveExt( A, x, b, Solver )
+#ifdef HAVE_VESOLVER
+      CASE('veiterative')
+        CALL VEIterSolver( A, x, b, Solver )
+      CASE('vedirect')
+        CALL VEDirectSolver( A, x, b, Solver )
+#endif
       CASE DEFAULT
         CALL DirectSolver( A, x, b, Solver )        
       END SELECT
@@ -13540,10 +13557,22 @@ END FUNCTION SearchNodeL
         CALL FetiSolver( A, x, b, Solver )
       CASE('block')
         CALL BlockSolveExt( A, x, b, Solver )
+#ifdef HAVE_VESOLVER
+      CASE('veiterative')
+        CALL VEParSolver( A, x, b, Solver )
+      CASE('vedirect')
+        CALL VEParDirectSolver( A, x, b, Solver )
+#endif
      CASE DEFAULT
         CALL DirectSolver( A, x, b, Solver )
       END SELECT
     END IF
+#ifdef WITH_TIMELOG
+    CALL system_clock(time_end_c)
+    elaps=real(time_end_c - time_begin_c)/CountPerSec
+    WRITE(Message,'(A,F14.6)') 'TIME:Solver: ', elaps
+    CALL INFO("SolveLinearSystem", Message, level=5)
+#endif
 
 110 IF( AndersonAcc .AND. AndersonScaled )  THEN
       CALL NonlinearAcceleration( A, x, b, Solver, .FALSE.)

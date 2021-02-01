@@ -101,6 +101,7 @@ SET(WITH_OpenMP FALSE CACHE BOOL "Use OpenMP thread and SIMD (if available) para
 SET(WITH_MKL FALSE CACHE BOOL "Use Intel Math Kernel library")
 SET(WITH_Mumps FALSE CACHE BOOL "Use Mumps sparse direct solver")
 SET(WITH_Hypre FALSE CACHE BOOL "Use Hypre linear algebra library")
+SET(WITH_VESolver FALSE CACHE BOOL "Use linear algebra library on SX-Aurora Vector Engine")
 SET(WITH_ELMERGUI FALSE CACHE BOOL "Include ElmerGUI")
 SET(WITH_ElmerIce FALSE CACHE BOOL "Include ElmerIce")
 SET(WITH_ELMERGUITESTER FALSE CACHE BOOL "Include ElmerGUI tester")
@@ -114,6 +115,8 @@ SET(WITH_CONTRIB FALSE CACHE BOOL "Include contributed solvers")
 SET(WITH_LUA FALSE CACHE BOOL "Include LUA extensions.")
 
 SET(WITH_Zoltan FALSE CACHE BOOL "Link in Zoltan mesh repartitioning library.")
+
+SET(WITH_TIMELOG FALSE CACHE BOOL "Add timelog feature for performance alalysis")
 
 # Let user select if the contiguous attribute is used or not
 SET(USE_CONTIGUOUS FALSE CACHE BOOL "Use contiguous attribute")
@@ -358,6 +361,16 @@ IF(WITH_Zoltan)
     MESSAGE(STATUS "------------------------------------------------")
   ENDIF()
 ENDIF(WITH_Zoltan)
+
+IF(WITH_VESOLVER)
+  SET(HAVE_VESOLVER TRUE)
+  MARK_AS_ADVANCED(HAVE_VESOLVER)
+ENDIF()
+
+IF(WITH_TIMELOG)
+  SET(WITH_TIMELOG TRUE)
+  MARK_AS_ADVANCED(WITH_TIMELOG)
+ENDIF()
 
 # MMG Remeshing
 MESSAGE(STATUS "------------------------------------------------")

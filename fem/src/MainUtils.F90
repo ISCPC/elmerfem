@@ -4993,6 +4993,11 @@ CONTAINS
      LOGICAL :: ApplyMortar, FoundMortar, SlaveNotParallel
      TYPE(Matrix_t), POINTER :: CM, CM0, CM1, CMP
 
+#ifdef WITH_TIMELOG
+     INTEGER time_begin_c,time_end_c, CountPerSec, CountMax
+     REAL  elaps
+#endif
+
 !------------------------------------------------------------------------------
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
        Solver % NumberOFActiveElements = 0
@@ -5149,12 +5154,21 @@ CONTAINS
         CALL Info("SingleSolver", Message, level=8)
      END IF
 
+#ifdef WITH_TIMELOG
+     CALL system_clock(time_begin_c, CountPerSec, CountMax)
+#endif
      IF( Solver % SolverMode == SOLVER_MODE_STEPS ) THEN
        CALL ExecSolverinSteps( Model, Solver, dt, TransientSimulation)
      ELSE
        SolverAddr = Solver % PROCEDURE
        CALL ExecSolver( SolverAddr, Model, Solver, dt, TransientSimulation)
      END IF
+#ifdef WITH_TIMELOG
+     CALL system_clock(time_end_c)
+     elaps=real(time_end_c - time_begin_c)/CountPerSec
+     WRITE(Message,'(A,F14.6)') 'TIME:ExecSolver: ', elaps
+     CALL INFO("SingleSolver", Message, level=5)
+#endif
 
      ! Special slot for post-processing solvers
      ! This makes it convenient to separate the solution and postprocessing.

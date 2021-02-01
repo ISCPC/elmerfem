@@ -43,6 +43,7 @@
 
 
 #include "huti_fdefs.h"
+#include "../config.h"
 
 MODULE SParIterComm
 
@@ -118,6 +119,9 @@ CONTAINS
 !-----------------------------------------------------------------------
    FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
 !-----------------------------------------------------------------------
+#ifdef HAVE_VESOLVER
+     USE VESolverAPI
+#endif
      TYPE (ParEnv_t), POINTER :: ParallelEnv
 
     ! Local variables
@@ -161,10 +165,19 @@ CONTAINS
         ParEnv % MyPE,ELMER_COMM_WORLD,ierr) 
     ParEnv % ActiveComm = ELMER_COMM_WORLD
 
+#ifdef HAVE_VESOLVER
+    CALL VESolver_Init(ELMER_COMM_WORLD,ierr)
+    WRITE( Message, * ) 'INFO: VE solver Initialized. (ierr=', ierr, ')'
+    CALL Info( 'ParCommInit', Message, Level=5 )
+#endif
+
 !ELMER_COMM_WORLD=MPI_COMM_WORLD
 
     CALL MPI_COMM_SIZE( ELMER_COMM_WORLD, ParEnv % PEs, ierr )
     IF ( ierr /= 0 ) THEN
+#ifdef HAVE_VESOLVER
+       CALL VESolver_Fini()
+#endif
        CALL MPI_Finalize( ierr )
     ELSE
        CALL MPI_COMM_RANK( ELMER_COMM_WORLD, ParEnv % MyPE, ierr )
@@ -1802,6 +1815,9 @@ CONTAINS
 !--------------------------------------------------------------------  
    SUBROUTINE SParGlobalNumbering( Mesh, OldMesh, NewNodeCnt, Reorder )
 !-----------------------------------------------------------------------
+#ifdef HAVE_VESOLVER
+    USE VESolverAPI
+#endif
     USE GeneralUtils
 !-----------------------------------------------------------------------
      TYPE(Mesh_t) :: Mesh, OldMesh
@@ -2024,6 +2040,9 @@ tstart = realtime()
            !---------------------------------------------------
            WRITE(*,'(A,I4,A,I6)') 'SParIterGlobalNumbering: PE:', ParEnv % MyPE+1, &
                 ' Could not determine owner for node(loc)=', i
+#ifdef HAVE_VESOLVER
+           CALL VESolver_Fini()
+#endif
            CALL MPI_FINALIZE( ierr )
         END IF
         !
@@ -2403,6 +2422,9 @@ tstart = realtime()
      Iterate = Iterate+1
      IF(Iterate > MaxIterates ) THEN
         WRITE(*,'(A,I6,A)') 'SParIterGlobalNumbering: PE: ', ParEnv % MyPE+1,'Max iterations exceeded'
+#ifdef HAVE_VESOLVER
+        CALL VESolver_Fini()
+#endif
         CALL MPI_FINALIZE( ELMER_COMM_WORLD, ierr )
      END IF
      DO i = n, Mesh % NumberOfNodes
@@ -4869,6 +4891,9 @@ END FUNCTION SParCNorm
 !> Finalize MPI environment
 !
 SUBROUTINE ParEnvFinalize()
+#ifdef HAVE_VESOLVER
+  USE VESolverAPI
+#endif
   IMPLICIT NONE
 
   ! local variables
@@ -4877,6 +4902,9 @@ SUBROUTINE ParEnvFinalize()
 
   !*********************************************************************
   CALL MPI_BARRIER( ELMER_COMM_WORLD, ierr )
+#ifdef HAVE_VESOLVER
+  CALL VESolver_Fini()
+#endif
   CALL MPI_FINALIZE( ierr )
 
   IF ( ierr /= 0 ) THEN

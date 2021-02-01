@@ -2132,6 +2132,11 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   INTEGER, POINTER CONTIG :: SCols(:)
   REAL(kind=dp)::tt,rt
 
+#ifdef WITH_TIMELOG
+  INTEGER time_begin_c,time_end_c, CountPerSec, CountMax
+  REAL  elaps
+#endif
+
   !*******************************************************************
 
   PIGpntr => GlobalData
@@ -2256,6 +2261,9 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
     SplittedMatrix % InsideMatrix % ConstraintMatrix => CM
   END IF
 
+#ifdef WITH_TIMELOG
+  CALL system_clock(time_begin_c, CountPerSec, CountMax)
+#endif
   IF ( .NOT. SourceMatrix % COMPLEX ) THEN
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
         TmpRHSVec, Solver, DotF=AddrFunc(SParDotProd), NormF=AddrFunc(SParNorm), &
@@ -2265,6 +2273,12 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
        TmpRHSVec, Solver, DotF=AddrFunc(SParCDotProd), NormF=AddrFunc(SParCNorm), &
          MatVecF=AddrFunc(SParCMatrixVector) )
   END IF
+#ifdef WITH_TIMELOG
+  CALL system_clock(time_end_c)
+  elaps=real(time_end_c - time_begin_c)/CountPerSec
+  WRITE(Message,'(A,F14.6)') 'TIME:IterSolver: ', elaps
+  CALL INFO("SParIterSolve", Message, level=5)
+#endif
 
   IF (ASSOCIATED(CM)) THEN
     DEALLOCATE(CM % Cols)

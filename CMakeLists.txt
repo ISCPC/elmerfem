@@ -101,6 +101,8 @@ SET(WITH_OpenMP FALSE CACHE BOOL "Use OpenMP thread and SIMD (if available) para
 SET(WITH_MKL FALSE CACHE BOOL "Use Intel Math Kernel library")
 SET(WITH_Mumps FALSE CACHE BOOL "Use Mumps sparse direct solver")
 SET(WITH_Hypre FALSE CACHE BOOL "Use Hypre linear algebra library")
+SET(WITH_HeteroSolver FALSE CACHE BOOL "Use SX-Aurora HeteroSolver library")
+SET(WITH_SBLAS FALSE CACHE BOOL "Use SX-Aurora SBLAS library")
 SET(WITH_ELMERGUI FALSE CACHE BOOL "Include ElmerGUI")
 SET(WITH_ElmerIce FALSE CACHE BOOL "Include ElmerIce")
 SET(WITH_ELMERGUITESTER FALSE CACHE BOOL "Include ElmerGUI tester")
@@ -114,6 +116,8 @@ SET(WITH_CONTRIB FALSE CACHE BOOL "Include contributed solvers")
 SET(WITH_LUA FALSE CACHE BOOL "Include LUA extensions.")
 
 SET(WITH_Zoltan FALSE CACHE BOOL "Link in Zoltan mesh repartitioning library.")
+
+SET(WITH_TIMELOG FALSE CACHE BOOL "Add timelog feature for performance alalysis")
 
 # Let user select if the contiguous attribute is used or not
 SET(USE_CONTIGUOUS FALSE CACHE BOOL "Use contiguous attribute")
@@ -358,6 +362,31 @@ IF(WITH_Zoltan)
     MESSAGE(STATUS "------------------------------------------------")
   ENDIF()
 ENDIF(WITH_Zoltan)
+
+IF(WITH_HeteroSolver)
+  SET(HAVE_HETEROSOLVER TRUE)
+  MARK_AS_ADVANCED(HAVE_HETEROSOLVER)
+  IF(WITH_MPI)
+    SET(HAVE_PHETEROSOLVER TRUE)
+    MARK_AS_ADVANCED(HAVE_PHETEROSOLVER)
+    SET(LAPACK_LIBRARIES "-lheterosolver_mpi_openmp -lblas_sequential -fopenmp" CACHE FILEPATH "")
+  ELSE()
+    SET(LAPACK_LIBRARIES "-lheterosolver_openmp -lblas_sequential -fopenmp" CACHE FILEPATH "")
+  ENDIF()
+  SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
+ENDIF()
+
+IF(WITH_SBLAS)
+  SET(HAVE_SBLAS TRUE)
+  MARK_AS_ADVANCED(HAVE_SBLAS)
+  SET(BLAS_LIBRARIES "-lsblas_openmp -fopenmp" CACHE FILEPATH "")
+  SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp")
+ENDIF()
+
+IF(WITH_TIMELOG)
+  SET(WITH_TIMELOG TRUE)
+  MARK_AS_ADVANCED(WITH_TIMELOG)
+ENDIF()
 
 # MMG Remeshing
 MESSAGE(STATUS "------------------------------------------------")

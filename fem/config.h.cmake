@@ -71,6 +71,18 @@
 /* Define if you have a CPardiso solver from MKL */
 #cmakedefine HAVE_CPARDISO
 
+/* Define if you have a HeteroSolver library */
+#cmakedefine HAVE_HETEROSOLVER
+
+/* Define if you have a Parallel HeteroSolver library */
+#cmakedefine HAVE_PHETEROSOLVER
+
+/* Define if you have a SBLAS library */
+#cmakedefine HAVE_SBLAS
+
+/* Define if you want to enable timelog for performance analysis */
+#cmakedefine WITH_TIMELOG
+
 /* Define if you have LAPACK library. */
 #define HAVE_LAPACK
 

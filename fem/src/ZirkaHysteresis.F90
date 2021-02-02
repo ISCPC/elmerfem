@@ -57,7 +57,8 @@ TYPE :: RevCurve_t  ! {{{
   INTEGER :: depth ! if 0, this is ascending or descending master curve depending on Bp and Bq
   CLASS(RevCurve_t), POINTER :: parent => NULL()
   TYPE(SplineLoop_t), POINTER :: bigloop => NULL()
-  PROCEDURE(SimpleEvalRevCurve), POINTER :: simple_eval => SimpleEvalRevCurve
+  !PROCEDURE(SimpleEvalRevCurve), POINTER :: simple_eval => SimpleEvalRevCurve
+  PROCEDURE(SimpleEvalRevCurve), POINTER :: simple_eval => NULL()
   CONTAINS
   ! PROCEDURE :: simple_eval => SimpleEvalRevCurve
   PROCEDURE :: eval => RecurEvalCurve

@@ -48,6 +48,10 @@ MODULE CRSMatrix
 
   USE Lists
   USE LoadMod
+#ifdef HAVE_SBLAS
+  USE omp_lib
+  USE sblas
+#endif
 
   IMPLICIT NONE
 
@@ -1345,6 +1349,9 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 
      INTEGER :: i,j,n
      REAL(KIND=dp) :: rsum
+#ifdef HAVE_SBLAS
+     REAL(KIND=dp) :: alpha=1.0, beta=0.0
+#endif
 #ifdef HAVE_MKL
 	INTERFACE
 		SUBROUTINE mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
@@ -1370,6 +1377,16 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
       RETURN
    END IF
 
+#ifdef HAVE_SBLAS
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_BEGIN("sblas_execute")
+#endif /* WITH_FTRACE */
+    CALL sblas_execute_mv_rd(SBLAS_NON_TRANSPOSE, A % SBLAShandle, &
+        alpha, u, beta, v)
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_END("sblas_execute")
+#endif /* WITH_FTRACE */
+#else
 	! Use MKL to perform mvp if it is available
 #ifdef HAVE_MKL
 	CALL mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
@@ -1385,6 +1402,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
      END DO
 !$omp end parallel do
 #endif
+#endif /* HAVE_SBLAS */
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_MatrixVectorMultiply
 !------------------------------------------------------------------------------
@@ -4426,6 +4444,10 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 !   INTEGER, POINTER :: Cols(:),Rows(:)
     REAL(KIND=dp), POINTER  CONTIG :: Values(:)
 !   REAL(KIND=dp), POINTER :: Values(:)
+#ifdef HAVE_SBLAS
+    REAL(KIND=dp) :: alpha=1.0, beta=0.0
+#endif
+
 
 #ifdef HAVE_MKL
 	INTERFACE
@@ -4462,6 +4484,16 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
 !--------------------------------------------------------------------
 #ifndef SGI
     IF ( HUTI_EXTOP_MATTYPE == HUTI_MAT_NOTTRPSED ) THEN
+#ifdef HAVE_SBLAS
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_BEGIN("sblas_execute")
+#endif /* WITH_FTRACE */
+    CALL sblas_execute_mv_rd(SBLAS_NON_TRANSPOSE, GlobalMatrix % SBLAShandle, &
+        alpha, u, beta, v)
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_END("sblas_execute")
+#endif /* WITH_FTRACE */
+#else
 #ifdef HAVE_MKL
     CALL mkl_dcsrgemv('N', n, Values, Rows, Cols, u, v)
 #else
@@ -4476,6 +4508,7 @@ SUBROUTINE CRS_RowSumInfo( A, Values )
        END DO
 !$omp end parallel do
 #endif
+#endif /* HAVE_SBLAS */
     ELSE
        v(1:n) = 0.0d0
        DO i=1,n

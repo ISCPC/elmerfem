@@ -35,6 +35,7 @@
 ! ****************************************************************************/
 
 #include "huti_fdefs.h"
+#include "../config.h"
 
 !> \ingroup ElmerLib 
 !> \{
@@ -923,8 +924,30 @@ CONTAINS
     ELSE
       CALL Info('IterSolver','Calling real valued iterative solver',Level=32)
 
+#ifdef HAVE_SBLAS
+      CALL Info('IterSolver','Creating SBLAS handle',Level=5)
+#ifdef WITH_FTRACE
+      CALL FTRACE_REGION_BEGIN("sblas_analyze")
+#endif /* WITH_FTRACE */
+      CALL sblas_create_matrix_handle_from_csr_rd(A % NumberOfRows, &
+          A % NumberOfRows, A % Rows, A % Cols, A % Values, &
+          SBLAS_INDEXING_1, SBLAS_GENERAL, A % SBLAShandle, A % ierror)
+
+      CALL sblas_analyze_mv_rd(SBLAS_NON_TRANSPOSE, A % SBLAShandle, A % ierror)
+      A % SBLASinitialized = .true.
+#ifdef WITH_FTRACE
+      CALL FTRACE_REGION_END("sblas_analyze")
+#endif /* WITH_FTRACE */
+#endif
+
       CALL IterCall( iterProc, x, b, ipar, dpar, work, &
           mvProc, pcondProc, pcondrProc, dotProc, normProc, stopcProc )
+
+#ifdef HAVE_SBLAS
+      CALL sblas_destroy_matrix_handle(A % SBLAShandle, A % ierror)
+      A % SBLASinitialized = .false.
+#endif
+
     ENDIF
 
     GlobalMatrix => SaveGlobalM

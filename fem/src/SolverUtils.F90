@@ -388,7 +388,8 @@ CONTAINS
      IF( dofs == 1 ) THEN
        DO i=1,n
          DO j=1,n
-           IF( XOR(PerFlip(Indexes(i)),PerFlip(Indexes(j))) ) THEN
+           !IF( XOR(PerFlip(Indexes(i)),PerFlip(Indexes(j))) ) THEN
+           IF( PerFlip(Indexes(i)).neqv.PerFlip(Indexes(j)) ) THEN
              A(i,j) = -A(i,j)
            END IF
          END DO
@@ -396,7 +397,8 @@ CONTAINS
      ELSE
        DO i=1,n
          DO j=1,n
-           IF( XOR(PerFlip(Indexes(i)),PerFlip(Indexes(j))) ) THEN
+           !IF( XOR(PerFlip(Indexes(i)),PerFlip(Indexes(j))) ) THEN
+           IF( PerFlip(Indexes(i)).neqv.PerFlip(Indexes(j)) ) THEN
              DO k=1,dofs
                DO l=1,dofs
                  A(dofs*(i-1)+k,dofs*(j-1)+l) = -A(dofs*(i-1)+k,dofs*(j-1)+l)
@@ -13173,6 +13175,11 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER :: mx(:), mb(:), mr(:)
     TYPE(Variable_t), POINTER :: IterV
     LOGICAL :: NormalizeToUnity, AndersonAcc, AndersonScaled, NoSolve
+
+#ifdef WITH_TIMELOG
+  INTEGER time_begin_c,time_end_c, CountPerSec, CountMax
+  REAL  elaps
+#endif
     
     INTERFACE 
        SUBROUTINE VankaCreate(A,Solver)
@@ -13509,6 +13516,12 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+#ifdef WITH_TIMELOG
+    CALL system_clock(time_begin_c, CountPerSec, CountMax)
+#endif
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_BEGIN("SolveLinearSystem")
+#endif /* WITH_FTRACE */
     IF ( ParEnv % PEs <= 1 ) THEN
       CALL Info('SolveLinearSystem','Serial linear System Solver: '//TRIM(Method),Level=8)
       
@@ -13544,6 +13557,15 @@ END FUNCTION SearchNodeL
         CALL DirectSolver( A, x, b, Solver )
       END SELECT
     END IF
+#ifdef WITH_FTRACE
+    CALL FTRACE_REGION_END("SolveLinearSystem")
+#endif /* WITH_FTRACE */
+#ifdef WITH_TIMELOG
+    CALL system_clock(time_end_c)
+    elaps=real(time_end_c - time_begin_c)/CountPerSec
+    WRITE(Message,'(A,F14.6)') 'TIME:Solver: ', elaps
+    CALL INFO("SolveLinearSystem", Message, level=5)
+#endif
 
 110 IF( AndersonAcc .AND. AndersonScaled )  THEN
       CALL NonlinearAcceleration( A, x, b, Solver, .FALSE.)
@@ -18117,7 +18139,8 @@ CONTAINS
         END IF        
 
         ! Only consider external walls with just either parent in solid
-        IF( .NOT. XOR( Solid1, Solid2 ) ) CYCLE
+        !IF( .NOT. XOR( Solid1, Solid2 ) ) CYCLE
+        IF( .NOT. Solid1.neqv.Solid2 ) CYCLE
         
         ! Check that the normal points outward of the solid
         IF( Solid1 ) THEN
@@ -19551,7 +19574,8 @@ CONTAINS
                  ! If we sum up to anti-periodic dof then use different sign
                  ! - except if the target is also antiperiodic.
                  IF( PerFlipActive ) THEN
-                   IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                   !IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                   IF( PerFlip(col).neqv.PerFlip(k) ) Scale = -Scale
                  END IF
                  
                END IF
@@ -19769,7 +19793,8 @@ CONTAINS
                  ! If we sum up to anti-periodic dof then use different sign
                  ! - except if the target is also antiperiodic.
                  IF( PerFlipActive ) THEN
-                   IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                   !IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                   IF( PerFlip(col).neqv.PerFlip(k) ) Scale = -Scale
                  END IF
                  
                END IF
@@ -19944,7 +19969,8 @@ CONTAINS
                    ! If we sum up to anti-periodic dof then use different sign
                    ! - except if the target is also antiperiodic.
                    IF( PerFlipActive ) THEN
-                     IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                     !IF( XOR( PerFlip(col),PerFlip(k) ) ) Scale = -Scale
+                     IF( PerFlip(col).neqv.PerFlip(k) ) Scale = -Scale
                    END IF
 
                  END IF

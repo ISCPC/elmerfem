@@ -4,6 +4,7 @@
 #include "GeometryEdge.h"
 #include <set>
 #include <vector>
+#include <iterator>
 #include <algorithm>
 
 #include "../../config.h"

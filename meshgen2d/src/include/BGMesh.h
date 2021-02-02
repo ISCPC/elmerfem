@@ -1,6 +1,7 @@
 #if !defined( MESH_BGMESH_H )
 #define MESH_BGMESH_H
 
+#include <iterator>
 #include "Connect.h"
 
 class BGMesh

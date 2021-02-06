@@ -13561,7 +13561,8 @@ END FUNCTION SearchNodeL
       CASE('veiterative')
         CALL VEParSolver( A, x, b, Solver )
       CASE('vedirect')
-        CALL VEParDirectSolver( A, x, b, Solver )
+        !CALL VEParDirectSolver( A, x, b, Solver )
+        CALL VEParSolver( A, x, b, Solver )
 #endif
      CASE DEFAULT
         CALL DirectSolver( A, x, b, Solver )

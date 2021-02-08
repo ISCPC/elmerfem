@@ -134,7 +134,7 @@ CONTAINS
     TYPE(Matrix_t), TARGET :: A
 
     INTEGER :: allocstat, nOwned
-    INTEGER, DIMENSION(:), POINTER CONTIG :: Cols, Rorder, Owner
+    INTEGER, DIMENSION(:), POINTER CONTIG :: Owner
     REAL(KIND=dp), DIMENSION(:), POINTER CONTIG :: b1, x1
     INTEGER :: n, neq, err, i, mode
     INTEGER :: nRows, nnz
@@ -147,7 +147,7 @@ CONTAINS
     INTEGER mtype, j, nz, nl, nt, ip
     INTEGER :: rind, lrow, rptr, rsize, lind, tind
     INTEGER :: nzutd, nhalo
-    INTEGER :: nprocs
+    INTEGER :: nprocs=1
 
     REAL(KIND=dp), ALLOCATABLE :: aa(:)
     INTEGER, ALLOCATABLE  :: ia(:), ja(:)
@@ -161,7 +161,7 @@ CONTAINS
     ! Check parameter
     Method = ListGetString( Solver % Values, 'Linear System Solver',GotIt )
     IF ( .NOT. GotIt ) Method = 'veiterative'
-    CALL Info('VEParIterSolver','Solver type: '//TRIM(Method),Level=5)
+    CALL Info('VEParSolver','Solver type: '//TRIM(Method),Level=5)
     SELECT CASE(Method)
       CASE('veiterative')
         solverId = VESOLVER_BICGSTAB2
@@ -173,7 +173,7 @@ CONTAINS
 
     Method = ListGetString( Solver % Values, 'Linear System Parallelize Mode',GotIt )
     IF ( .NOT. GotIt ) Method = 'GatherOnVH'
-    CALL Info('VEParIterSolver','Using mode: '//TRIM(Method),Level=5)
+    CALL Info('VEParSolver','Using mode: '//TRIM(Method),Level=5)
     SELECT CASE( Method )
       CASE( 'gatheronve' )
         mode = VES_MODE_GATHER_ON_VE
@@ -189,7 +189,7 @@ CONTAINS
     n = SIZE(A % ParallelInfo % GlobalDOFs)
     ALLOCATE(A % Gorder(n), Owner(n), STAT=allocstat)
     IF (allocstat /= 0) THEN
-         CALL Fatal('VEParIterSolver', &
+         CALL Fatal('VEParSolver', &
                     'Memory allocation for VEParSolver global numbering failed')
     END IF
     CALL ContinuousNumbering(A % ParallelInfo, A % Perm, A % Gorder, Owner, nOwn=nOwned)
@@ -200,192 +200,37 @@ CONTAINS
 
 
     IF (mode.eq.VES_MODE_SYMMETRIC) THEN
-        ! Find bounds of domain
-        nl = A % Gorder(1)
-        nt = A % Gorder(1)
-        DO i=2,n
-            ! NOTE: Matrix is structurally symmetric
-            rind = A % Gorder(i)
-            nl = MIN(rind, nl)
-            nt = MAX(rind, nt)
-        END DO
-#if 0
-        ! Allocate temp storage for global numbering
-        ALLOCATE(Order(n), iperm(n), STAT=allocstat)
-        IF (allocstat /= 0) THEN
-            CALL Fatal('VEParDirectSolver', &
-                        'Memory allocation for global numbering failed')
-        END IF
-
-        ! Sort global numbering to build matrix
-        Order(1:n) = A % Gorder(1:n)
-        DO i=1,n
-            iperm(i)=i
-        END DO
-        CALL SortI(n, Order, iperm)
-
-        ! Allocate storage for CPardiso matrix
-        nhalo = (nt-nl+1)-n
-        nz = A % Rows(A % NumberOfRows+1)-1
-        ! IF (mtype.eq.HS_UNSYMMETRIC) THEN
-            ALLOCATE(ia(nt-nl+2), &
-                     ja(nz+nhalo), &
-                     aa(nz+nhalo), &
-                    STAT=allocstat)
-        ! ELSE
-        !    nzutd = ((nz-n)/2)+1 + n
-        !    ALLOCATE(ia(nt-nl+2), &
-        !             ja(nzutd+nhalo), &
-        !             aa(nzutd+nhalo), &
-        !             STAT=allocstat)
-        ! END IF
-        IF (allocstat /= 0) THEN
-            CALL Fatal('VEParDirectSolver', &
-                       'Memory allocation for CPardiso matrix failed')
-        END IF
-
-        ! Build distributed CRS matrix
-        ia(1) = 1
-        lrow = 1      ! Next row to add
-        rptr = 1      ! Pointer to next row to add, equals ia(lrow)
-        lind = Order(1)-1 ! Row pointer for the first round
-
-        ! Add rows of matrix 
-        DO i=1,n
-          ! Skip empty rows
-          tind = Order(i)
-          rsize = (tind-lind)-1
-
-          DO j=1,rsize
-            ia(lrow+j)=rptr
-          END DO
-          lrow = lrow + rsize
-
-          ! Add next row
-          rind = iperm(i)
-          lind = A % rows(rind)
-          tind = A % rows(rind+1)
-          rsize = tind-lind
-          DO j=lind, tind-1
-            ja(rptr+(j-lind))=A % Gorder(A % Cols(j))
-            aa(rptr+(j-lind))=A % values(j)
-          END DO
-
-          ! Sort column indices
-          CALL SortF(rsize, ja(rptr:rptr+rsize), aa(rptr:rptr+rsize))
-
-          ! Set up row pointers
-          rptr = rptr + rsize
-          lrow = lrow + 1
-          ia(lrow) = rptr
-
-          lind = Order(i) ! Store row index for next round
-        END DO
-
-        ! Deallocate temp storage
-        DEALLOCATE(Order, iperm)
-
-        ALLOCATE( b1(nt-nl+1) )
-        DO i=1,A % NumberOfRows
-          ip = A % Gorder(i) - nl + 1
-          b1(ip) = b(i)
-        END DO
-        !
-        ! Call common solver function
-        !
-        ALLOCATE( x1(neq) )
         CALL MPI_COMM_SIZE(A % Comm, nprocs, err)
-        CALL VESolver_Activate(A % comm, nprocs, err)
-        CALL VESolver_PSolve_dcsr(VES_MODE_SYMMETRIC, VESOLVER_HS, neq, aa, ia, ja, nl, nt, &
-            b1, x1, res, err)
-        CALL VESolver_Deactivate()
-        DEALLOCATE(ia, ja, aa)
-
-        ! Distribute solution
-        DO i=1,A % NumberOfRows
-            x(i)=x1(A % Gorder(i))
-        END DO
-
-       ! free buffers
-        DEALLOCATE(b1)
-        DEALLOCATE(x1)
-#else
-        ! vesolver_send_matrix_data_distributed
-        ALLOCATE(Cols(nnz), Rorder(neq), x1(neq), STAT=allocstat)
-        IF (allocstat /= 0) THEN
-             CALL Fatal('VEParIterSolver', &
-                        'Memory allocation for VEParSolver Cols, Rorder failed')
-        END IF
-
-        DO i=1,nnz
-            Cols(i) = A % Gorder(A % Cols(i))
-        END DO
-
-        Rorder = 0
-        DO i=1,nRows
-            Rorder(A % Gorder(i)) = i
-        END DO
-
-        !
-        ! Call common solver function
-        !
-        CALL MPI_COMM_SIZE(A % Comm, nprocs, err)
-        CALL VESolver_Activate(A % comm, nprocs, err)
-        CALL VESolver_PSolve2(mode, solverId, &
-            neq, nRows, nl, nt, A % Values, A % Rows, Cols, Rorder, &
-            b, x1, res, err)
-        CALL VESolver_Deactivate()
-
-        ! Distribute solution
-        DO i=1,nRows
-            x(i)=x1(A % Gorder(i))
-        END DO
-
-        ! free buffers
-        DEALLOCATE(Cols)
-        DEALLOCATE(Rorder)
-        DEALLOCATE(x1)
-#endif
-    ELSE
-        ! vesolver_send_matrix_data_distributed
-        ALLOCATE(Cols(nnz), Rorder(neq), x1(neq), STAT=allocstat)
-        IF (allocstat /= 0) THEN
-             CALL Fatal('VEParIterSolver', &
-                        'Memory allocation for VEParSolver Cols, Rorder failed')
-        END IF
-
-        DO i=1,nnz
-            Cols(i) = A % Gorder(A % Cols(i))
-        END DO
-
-        Rorder = 0
-        DO i=1,nRows
-            Rorder(A % Gorder(i)) = i
-        END DO
-
-        !
-        ! Call common solver function
-        !
-        CALL VESolver_Activate(A % comm, 1, err)
-        CALL VESolver_PSolve(mode, solverId, &
-            neq, nRows, A % Values, A % Rows, Cols, Rorder, &
-            b, x1, res, err)
-        CALL VESolver_Deactivate()
-
-        ! Distribute solution
-        DO i=1,nRows
-            x(i)=x1(A % Gorder(i))
-        END DO
-
-        ! free buffers
-        DEALLOCATE(Cols)
-        DEALLOCATE(Rorder)
-        DEALLOCATE(x1)
     END IF
+
+    ! Allocate solution vector
+    ALLOCATE(x1(neq), STAT=allocstat)
+    IF (allocstat /= 0) THEN
+         CALL Fatal('VEParSolver', &
+                    'Memory allocation for VEParSolver solution vector failed')
+    END IF
+
+    !
+    ! Call common solver function
+    !
+    CALL VESolver_Activate(A % comm, nprocs, err)
+    CALL VESolver_PSolve(mode, solverId, &
+        neq, nRows, A % Values, A % Rows, A % Cols, A % Gorder, &
+        b, x1, res, err)
+    CALL VESolver_Deactivate()
+
+    ! Distribute solution
+    DO i=1,nRows
+        x(i)=x1(A % Gorder(i))
+    END DO
+
+    ! free buffers
+    DEALLOCATE(x1)
+
 !-------------------------------------------------------------------------------
   END SUBROUTINE VEParSolver
 !-------------------------------------------------------------------------------
-
+#if 0
 !------------------------------------------------------------------------------
   SUBROUTINE VEParDirectSolver( A, x, b, Solver )
 !------------------------------------------------------------------------------
@@ -550,6 +395,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE VEParDirectSolver
 !------------------------------------------------------------------------------
+#endif
 
 #endif /* HAVE_VESOLVER */
 

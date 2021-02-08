@@ -137,6 +137,36 @@ CONTAINS
 !--------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------
+    SUBROUTINE VESolver_PSolve2(mode, solver, neq, nRows, nl, nt, Values, Rows, Cols, Rorder, b, x, res, err)
+!--------------------------------------------------------------------------------
+        INTEGER, intent(in) :: mode, solver, neq, nRows, nl, nt
+        REAL(8), DIMENSION(:), intent(in) :: Values, b, x
+        INTEGER, DIMENSION(:), intent(in) :: Rows, Cols, Rorder
+        !REAL(8), DIMENSION(:), TARGET CONTIG :: Values, b, x
+        !INTEGER, DIMENSION(:), TARGET CONTIG :: Rows, Cols
+        REAL(8) :: res
+        INTEGER :: err
+
+        INTERFACE
+            integer(C_INT32_T) FUNCTION VESolver_PSolve2_C(mode, solver, neq, &
+                nRows, nl, nt, Rows, Cols, Values, Rorder, b, x, res) bind (c,name="vesolver_psolve2")
+                USE iso_c_binding
+                INTEGER(c_int), VALUE, intent(in) :: mode, solver, neq, nRows, nl, nt
+                REAL(c_double), DIMENSION(*), intent(in) :: Values, b, x
+                INTEGER(c_int), DIMENSION(*), intent(in) :: Rows, Cols, Rorder
+                REAL(c_double), VALUE, intent(in) :: res
+            END FUNCTION
+        END INTERFACE
+
+        !WRITE(*,*) 'INFO: Send Request to VE (solver, res) = (', solver, res, ').'
+        err = VESolver_PSolve2_C(mode, solver, neq, nRows, nl, nt, &
+            Rows, Cols, Values, Rorder, b, x, res)
+
+!--------------------------------------------------------------------------------
+    END SUBROUTINE VESolver_PSolve2
+!--------------------------------------------------------------------------------
+
+!--------------------------------------------------------------------------------
     SUBROUTINE VESolver_PSolve_dcsr(mode, solver, neq, Values, Rows, Cols, nl, nt, b, x, res, err)
 !--------------------------------------------------------------------------------
         INTEGER, intent(in) :: mode, solver, neq, nl, nt

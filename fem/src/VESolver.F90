@@ -209,7 +209,7 @@ CONTAINS
             nl = MIN(rind, nl)
             nt = MAX(rind, nt)
         END DO
-
+#if 0
         ! Allocate temp storage for global numbering
         ALLOCATE(Order(n), iperm(n), STAT=allocstat)
         IF (allocstat /= 0) THEN
@@ -309,6 +309,43 @@ CONTAINS
        ! free buffers
         DEALLOCATE(b1)
         DEALLOCATE(x1)
+#else
+        ! vesolver_send_matrix_data_distributed
+        ALLOCATE(Cols(nnz), Rorder(neq), x1(neq), STAT=allocstat)
+        IF (allocstat /= 0) THEN
+             CALL Fatal('VEParIterSolver', &
+                        'Memory allocation for VEParSolver Cols, Rorder failed')
+        END IF
+
+        DO i=1,nnz
+            Cols(i) = A % Gorder(A % Cols(i))
+        END DO
+
+        Rorder = 0
+        DO i=1,nRows
+            Rorder(A % Gorder(i)) = i
+        END DO
+
+        !
+        ! Call common solver function
+        !
+        CALL MPI_COMM_SIZE(A % Comm, nprocs, err)
+        CALL VESolver_Activate(A % comm, nprocs, err)
+        CALL VESolver_PSolve2(mode, solverId, &
+            neq, nRows, nl, nt, A % Values, A % Rows, Cols, Rorder, &
+            b, x1, res, err)
+        CALL VESolver_Deactivate()
+
+        ! Distribute solution
+        DO i=1,nRows
+            x(i)=x1(A % Gorder(i))
+        END DO
+
+        ! free buffers
+        DEALLOCATE(Cols)
+        DEALLOCATE(Rorder)
+        DEALLOCATE(x1)
+#endif
     ELSE
         ! vesolver_send_matrix_data_distributed
         ALLOCATE(Cols(nnz), Rorder(neq), x1(neq), STAT=allocstat)
